@@ -1,0 +1,24 @@
+name: example
+description: A simple command-line application.
+version: 1.0.0
+# homepage: https://www.example.com
+
+environment:
+  sdk: '>=2.16.2 <3.0.0'
+
+
+dependencies:
+  build_runner: ^2.1.10
+  characters: ^1.2.0
+  nop:
+    path: ..
+  test: ^1.21.0
+
+dependency_overrides:
+  nop_annotations:
+    path: ../../nop_annotations
+
+dev_dependencies:
+  lints: ^1.0.0
+  nop_gen:
+    path: ../../nop_gen

@@ -1,0 +1,21 @@
+name: nop
+description: dart pagckage for sqlite and isolate.
+version: 0.0.1+1
+homepage: https://github.com/sersr/nop
+publish_to: none
+
+environment:
+  sdk: ">=2.15.0 <3.0.0"
+
+dependencies:
+  async: any
+  collection: ^1.15.0
+  equatable: ^2.0.2
+  nop_annotations:
+    git:
+      url: https://github.com/sersr/nop_annotations.git
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^1.0.0
