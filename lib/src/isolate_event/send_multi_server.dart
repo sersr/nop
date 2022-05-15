@@ -242,7 +242,7 @@ mixin SendMultiServerMixin on SendEvent, ListenMixin {
 /// 比如: 加入[xxxxxxMessager]
 /// 从[getProtocols]中获取协议
 mixin ResolveMultiRecievedMixin on SendEvent, Resolve {
-  final sendHandleOwners = <String, SendHandleOwner>{};
+  final receivedSendHandleOwners = <String, SendHandleOwner>{};
   @override
   bool onListenReceivedSendHandle(SendHandleName sendHandleName) {
     final sendHandleOwner = SendHandleOwner(
@@ -266,8 +266,9 @@ mixin ResolveMultiRecievedMixin on SendEvent, Resolve {
       Log.w('not matched, ${sendHandleName.name}, $prots, $localProts');
     }
 
-    assert(!sendHandleOwners.containsKey(sendHandleName.name));
-    sendHandleOwners[sendHandleName.name] = sendHandleOwner;
+    assert(!receivedSendHandleOwners.containsKey(sendHandleName.name),
+        sendHandleName.name);
+    receivedSendHandleOwners[sendHandleName.name] = sendHandleOwner;
     onResume();
     return true;
   }
@@ -280,7 +281,7 @@ mixin ResolveMultiRecievedMixin on SendEvent, Resolve {
 
   @override
   SendHandleOwner? getSendHandleOwner(serverName) {
-    final sendHandleOwner = sendHandleOwners[serverName];
+    final sendHandleOwner = receivedSendHandleOwners[serverName];
     if (sendHandleOwner != null) return sendHandleOwner;
     Log.e('remoteName: $serverName == null', onlyDebug: false);
     return super.getSendHandleOwner(serverName);
@@ -288,7 +289,7 @@ mixin ResolveMultiRecievedMixin on SendEvent, Resolve {
 
   @override
   FutureOr<void> onClose() async {
-    sendHandleOwners.clear();
+    receivedSendHandleOwners.clear();
     return super.onClose();
   }
 }
