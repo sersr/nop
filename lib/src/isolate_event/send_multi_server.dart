@@ -182,19 +182,17 @@ mixin SendMultiServerMixin on SendEvent, ListenMixin {
     });
   }
 
-  bool _closeRemoteServer(SendHandle sendHandle, String serverName) {
+  void _closeRemoteServer(SendHandle sendHandle, String serverName) {
     final oldServer = remoteServers[serverName];
-    var wait = false;
+
     if (oldServer != null) {
       if (oldServer.killed) {
         remoteServers.remove(serverName);
       } else {
         send(KeyController(sendHandle, KeyType.closeServer, serverName));
-        wait = true;
       }
       _disposeRemoteServer(serverName);
     }
-    return wait;
   }
 
   /// impl [SendInitCloseMixin]
@@ -204,27 +202,26 @@ mixin SendMultiServerMixin on SendEvent, ListenMixin {
     dispose();
     notifyState(false);
     final rcHandle = ReceiveHandle();
-    final allNames = Map.of(remoteServers);
-    var shouldAwaitFor = false;
-
-    for (var server in allNames.entries) {
-      shouldAwaitFor |= _closeRemoteServer(rcHandle.sendHandle, server.key);
+    final servers = Map.of(remoteServers)..removeWhere((e, v) => !v.killed);
+    for (var server in servers.entries) {
+      _closeRemoteServer(rcHandle.sendHandle, server.key);
     }
 
-    if (shouldAwaitFor) {
+    if (servers.isNotEmpty) {
       final timer = Timer(const Duration(milliseconds: 10000), () {
         Log.w('timeout: 10 seconds', onlyDebug: false);
       });
 
       await for (var message in rcHandle) {
         if (message is SendHandleName) {
+          servers.remove(message.name);
           final removedIsolate = remoteServers.remove(message.name);
           if (removedIsolate != null) {
             Log.w('close server: ${message.name}', onlyDebug: false);
             removedIsolate.kill();
           }
 
-          if (remoteServers.values.every((e) => e.killed)) {
+          if (servers.isEmpty) {
             remoteServers.clear();
             rcHandle.close();
             localSendHandle.send(_closeKey);
