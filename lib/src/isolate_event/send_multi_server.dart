@@ -202,31 +202,33 @@ mixin SendMultiServerMixin on SendEvent, ListenMixin {
     notifyState(false);
     final rcHandle = ReceiveHandle();
     final allNames = Map.of(remoteServers);
-
+    var shouldWait = false;
+    
     for (var server in allNames.entries) {
       if (server.value is NullRemoteServer) {
         remoteServers.remove(server.key);
         _disposeRemoteServer(server.key);
         continue;
       }
+      shouldWait = true;
       _closeRemoteServer(rcHandle.sendHandle, server.key);
     }
-    final timer = Timer(const Duration(milliseconds: 10000), () {
-      Log.w('timeout: 10 seconds', onlyDebug: false);
-    });
+   
+    
+    if(shouldWait) {
+      await for (var message in rcHandle) {
+        if (message is SendHandleName) {
+          final removedIsolate = remoteServers.remove(message.name);
+          if (removedIsolate != null) {
+            Log.w('close server: ${message.name}', onlyDebug: false);
+            removedIsolate.kill();
+          }
 
-    await for (var message in rcHandle) {
-      if (message is SendHandleName) {
-        final removedIsolate = remoteServers.remove(message.name);
-        if (removedIsolate != null) {
-          Log.w('close server: ${message.name}', onlyDebug: false);
-          removedIsolate.kill();
-        }
-
-        if (remoteServers.values.every((e) => e.killed)) {
-          remoteServers.clear();
-          rcHandle.close();
-          localSendHandle.send(_closeKey);
+          if (remoteServers.values.every((e) => e.killed)) {
+            remoteServers.clear();
+            rcHandle.close();
+            localSendHandle.send(_closeKey);
+          }
         }
       }
     }
