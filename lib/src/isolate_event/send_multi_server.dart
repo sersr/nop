@@ -186,7 +186,7 @@ mixin SendMultiServerMixin on SendEvent, ListenMixin {
     final oldServer = remoteServers[serverName];
     var wait = false;
     if (oldServer != null) {
-      if (oldServer is NullRemoteServer) {
+      if (oldServer.killed) {
         remoteServers.remove(serverName);
       } else {
         send(KeyController(sendHandle, KeyType.closeServer, serverName));
@@ -205,14 +205,17 @@ mixin SendMultiServerMixin on SendEvent, ListenMixin {
     notifyState(false);
     final rcHandle = ReceiveHandle();
     final allNames = Map.of(remoteServers);
-    var shouldWait = false;
-    
+    var shouldAwaitFor = false;
+
     for (var server in allNames.entries) {
-      shouldWait |= _closeRemoteServer(rcHandle.sendHandle, server.key);
+      shouldAwaitFor |= _closeRemoteServer(rcHandle.sendHandle, server.key);
     }
-   
-    
-    if(shouldWait) {
+
+    if (shouldAwaitFor) {
+      final timer = Timer(const Duration(milliseconds: 10000), () {
+        Log.w('timeout: 10 seconds', onlyDebug: false);
+      });
+
       await for (var message in rcHandle) {
         if (message is SendHandleName) {
           final removedIsolate = remoteServers.remove(message.name);
@@ -227,11 +230,11 @@ mixin SendMultiServerMixin on SendEvent, ListenMixin {
             localSendHandle.send(_closeKey);
           }
         }
+        timer.cancel();
       }
     }
 
     Log.w('close: success', onlyDebug: false);
-    timer.cancel();
   }
 
   static const _closeKey = 'close_root_receive_handle';

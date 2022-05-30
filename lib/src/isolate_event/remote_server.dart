@@ -4,6 +4,7 @@ import 'dart:isolate';
 import 'event.dart';
 import '../../event_queue.dart';
 import '../../utils.dart';
+import 'package:meta/meta.dart';
 
 /// 远程服务/主机
 /// 提供[kill]接口
@@ -16,14 +17,13 @@ abstract class RemoteServer {
   FutureOr<void> kill();
 }
 
-class LocalRemoteServer<T> extends RemoteServer {
-  LocalRemoteServer({required this.entryPoint, required this.args});
-  final ServerConfigurations<T> args;
-  final RemoteEntryPoint<T> entryPoint;
+/// 不是由当前的对象创建的[RemoteServer]
+/// 由用户管理生命周期
+class RemoteServerBase extends RemoteServer {
   @override
+  @mustCallSuper
   void create() {
     _killed = false;
-    entryPoint(args).then((runner) => runner.run());
   }
 
   @override
@@ -32,6 +32,19 @@ class LocalRemoteServer<T> extends RemoteServer {
   @override
   void kill() {
     _killed = true;
+  }
+}
+
+/// 由[entryPoint]创建
+class LocalRemoteServer<T> extends RemoteServerBase {
+  LocalRemoteServer({required this.entryPoint, required this.args});
+  final ServerConfigurations<T> args;
+  final RemoteEntryPoint<T> entryPoint;
+
+  @override
+  void create() {
+    super.create();
+    entryPoint(args).then((runner) => runner.run());
   }
 }
 
@@ -61,16 +74,20 @@ class _IsolateCreaterWithArgs<T> {
   FutureOr<void> apply() => entryPoint(args).then((runner) => runner.run());
 }
 
+/// 创建一个[Isolate]
 class IsolateRemoteServer<T> extends RemoteServer {
-  IsolateRemoteServer({required this.entryPoint, required this.args});
+  IsolateRemoteServer(
+      {required this.entryPoint, required this.args, this.debugName});
   final ServerConfigurations<T> args;
   final RemoteEntryPoint<T> entryPoint;
+  final String? debugName;
 
   Isolate? _isolate;
   @override
   Future<void> create() async {
     _isolate ??= await Isolate.spawn(
-        _nopIsolate, _IsolateCreaterWithArgs(entryPoint, args));
+        _nopIsolate, _IsolateCreaterWithArgs(entryPoint, args),
+        debugName: debugName);
   }
 
   @override
@@ -90,7 +107,7 @@ class IsolateRemoteServer<T> extends RemoteServer {
 /// 为其提供一个句柄
 class NullRemoteServer extends RemoteServer {
   const NullRemoteServer._();
-  const factory NullRemoteServer() = NullRemoteServer._;
+  factory NullRemoteServer() => const NullRemoteServer._();
   @override
   bool get killed => true;
 

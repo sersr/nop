@@ -17,8 +17,11 @@ dependencies:
 dependency_overrides:
   nop_annotations:
     path: ../../nop_annotations
+  nop_gen:
+    path: ../../nop_gen
 
 dev_dependencies:
   lints: ^1.0.0
   nop_gen:
-    path: ../../nop_gen
+    git:
+      url: https://github.com/sersr/nop_gen.git
