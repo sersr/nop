@@ -182,16 +182,19 @@ mixin SendMultiServerMixin on SendEvent, ListenMixin {
     });
   }
 
-  void _closeRemoteServer(SendHandle sendHandle, String serverName) {
+  bool _closeRemoteServer(SendHandle sendHandle, String serverName) {
     final oldServer = remoteServers[serverName];
+    var wait = false;
     if (oldServer != null) {
       if (oldServer is NullRemoteServer) {
         remoteServers.remove(serverName);
       } else {
         send(KeyController(sendHandle, KeyType.closeServer, serverName));
+        wait = true;
       }
       _disposeRemoteServer(serverName);
     }
+    return wait;
   }
 
   /// impl [SendInitCloseMixin]
@@ -205,13 +208,7 @@ mixin SendMultiServerMixin on SendEvent, ListenMixin {
     var shouldWait = false;
     
     for (var server in allNames.entries) {
-      if (server.value is NullRemoteServer) {
-        remoteServers.remove(server.key);
-        _disposeRemoteServer(server.key);
-        continue;
-      }
-      shouldWait = true;
-      _closeRemoteServer(rcHandle.sendHandle, server.key);
+      shouldWait |= _closeRemoteServer(rcHandle.sendHandle, server.key);
     }
    
     
