@@ -24,8 +24,13 @@ class SendHandleOwner {
 }
 
 class SendHandleName {
-  SendHandleName(this.name, this.sendHandle, {this.protocols});
+  SendHandleName(this.name, this.sendHandle,
+      {this.protocols, this.isToRemote = true});
   final String name;
+
+  /// true: 由local 发送给 remote
+  /// false: remote 返回给 local
+  final bool isToRemote;
   final SendHandle sendHandle;
   final List<Type>? protocols;
 }

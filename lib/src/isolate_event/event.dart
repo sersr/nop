@@ -164,7 +164,7 @@ mixin Resolve on ListenMixin {
       }
       for (var item in map.entries) {
         remoteSendHandle!.send(SendHandleName(item.key, localSendHandle,
-            protocols: item.value.toList()));
+            protocols: item.value.toList(), isToRemote: false));
       }
     }
     super.onResumeListen();
@@ -240,8 +240,8 @@ mixin Resolve on ListenMixin {
       } else if (key.key is SendHandle &&
           identical(key.keyType, KeyType.closeServer)) {
         final sp = key.key;
-        onClose().whenComplete(
-            () => sp.send(SendHandleName('${key.serverName}', sp)));
+        onClose().whenComplete(() => sp
+            .send(SendHandleName('${key.serverName}', sp, isToRemote: false)));
 
         return true;
       }

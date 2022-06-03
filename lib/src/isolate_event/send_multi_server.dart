@@ -65,21 +65,22 @@ mixin SendMultiServerMixin on SendEvent, ListenMixin {
 
   @override
   bool onListenReceivedSendHandle(SendHandleName sendHandleName) {
-    final protocols = _allProtocols[sendHandleName.name];
-    if (protocols != null) {
-      final equal = sendHandleName.protocols != null &&
-          protocols.every(sendHandleName.protocols!.contains);
-      final sendHandleOwner = SendHandleOwner(
-          localSendHandle: sendHandleName.sendHandle,
-          remoteSendHandle: localSendHandle);
-      allServerProtocols[sendHandleName.name] = sendHandleName.protocols;
-      sendHandleOwners[sendHandleName.name] = sendHandleOwner;
-      Log.i(
-          'init: protocol status: $equal | ${sendHandleName.name} | $protocols',
-          onlyDebug: false);
-      return true;
+    if (!sendHandleName.isToRemote) {
+      final protocols = _allProtocols[sendHandleName.name];
+      if (protocols != null) {
+        final equal = sendHandleName.protocols != null &&
+            protocols.every(sendHandleName.protocols!.contains);
+        final sendHandleOwner = SendHandleOwner(
+            localSendHandle: sendHandleName.sendHandle,
+            remoteSendHandle: localSendHandle);
+        allServerProtocols[sendHandleName.name] = sendHandleName.protocols;
+        sendHandleOwners[sendHandleName.name] = sendHandleOwner;
+        Log.i(
+            'init: protocol status: $equal | ${sendHandleName.name} | $protocols',
+            onlyDebug: false);
+        return true;
+      }
     }
-    Log.e('error sendHandleName: ${sendHandleName.name}', onlyDebug: false);
     return super.onListenReceivedSendHandle(sendHandleName);
   }
 
@@ -142,7 +143,7 @@ mixin SendMultiServerMixin on SendEvent, ListenMixin {
     receiveHandle.listen((message) {
       if (add(message)) return;
       if (listen(message) || message is SendHandleName) {
-        if (message is SendHandleName) {
+        if (message is SendHandleName && !message.isToRemote) {
           final removed = allServerNames.remove(message.name);
           assert(removed || Log.i('can not remove: ${message.name} server'));
           if (allServerNames.isEmpty) {
@@ -244,6 +245,9 @@ mixin ResolveMultiRecievedMixin on SendEvent, Resolve {
   final receivedSendHandleOwners = <String, SendHandleOwner>{};
   @override
   bool onListenReceivedSendHandle(SendHandleName sendHandleName) {
+    if (!sendHandleName.isToRemote) {
+      return super.onListenReceivedSendHandle(sendHandleName);
+    }
     final sendHandleOwner = SendHandleOwner(
       localSendHandle: sendHandleName.sendHandle,
       remoteSendHandle: localSendHandle,
