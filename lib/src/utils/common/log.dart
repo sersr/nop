@@ -239,6 +239,21 @@ abstract class Log {
     return true;
   }
 
+  static String getLineFromStack({int position = 1}) {
+    final st = StackTrace.current.toString();
+
+    final sp = LineSplitter.split(st);
+    var count = -1;
+
+    for (var item in sp) {
+      count++;
+      if (count == position) {
+        return item;
+      }
+    }
+    return '';
+  }
+
   static final _reg = RegExp(r'\((package|dart):.*\)');
 
   static Iterable<String> splitString(Object source, {int lines = 0}) sync* {
