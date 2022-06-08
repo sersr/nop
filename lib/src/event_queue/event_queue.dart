@@ -284,8 +284,6 @@ class EventQueue {
   Future<void> _run() async {
     _active = true;
     while (_taskPool.isNotEmpty) {
-      await idleWait;
-
       final task = _taskPool.removeFirst();
 
       /// 处理忽略逻辑
@@ -304,6 +302,7 @@ class EventQueue {
         }
       }
       await _runImpl(task);
+      await idleWait;
     }
     _active = false;
     _closeStream();
