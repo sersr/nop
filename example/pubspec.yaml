@@ -1,8 +1,8 @@
 name: example
-description: A simple command-line application.
+description: nop example
 version: 1.0.0
 # homepage: https://www.example.com
-
+publish_to: none
 environment:
   sdk: '>=2.16.2 <3.0.0'
 
