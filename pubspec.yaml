@@ -1,19 +1,17 @@
 name: nop
-description: dart pagckage for sqlite and isolate.
-version: 0.0.1+1
-homepage: https://github.com/sersr/nop
-publish_to: none
+description: Isolate 通信
+version: 0.0.2+1
+repository: https://github.com/sersr/nop
 
 environment:
   sdk: ">=2.15.0 <3.0.0"
 
 dependencies:
-  async: any
+  meta: ^1.7.0
+  characters: ^1.2.0
   collection: ^1.15.0
   equatable: ^2.0.2
-  nop_annotations:
-    git:
-      url: https://github.com/sersr/nop_annotations.git
+  nop_annotations: ^0.1.1
 
 dev_dependencies:
   flutter_test:
