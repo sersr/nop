@@ -1,5 +1,3 @@
-library nop;
-
 export 'package:nop_annotations/nop_annotations.dart';
 
 export 'src/database/database.dart';

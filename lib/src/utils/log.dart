@@ -140,7 +140,7 @@ abstract class Log {
     int lines = 0,
     int position = 1,
   }) {
-    if (message == null || (!debugMode && onlyDebug)) return true;
+    if (!debugMode && onlyDebug) return true;
     position++;
     zone ??= Zone.current;
     var start = '';

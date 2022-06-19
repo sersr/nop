@@ -1,7 +1,30 @@
 import 'dart:async';
 
-import '../match/option.dart';
 import '../../../event_queue.dart';
+
+abstract class Option<V> {
+  const Option();
+  S map<S>({required S Function() ifNone, required S Function(V v) ifSome});
+}
+
+class None<V> extends Option<V> {
+  const None();
+
+  @override
+  S map<S>({required S Function() ifNone, required S Function(V v) ifSome}) =>
+      ifNone();
+}
+
+class Some<V> extends Option<V> {
+  const Some(this.v);
+  const factory Some.wrap(V v) = Some;
+  final V v;
+  @override
+  S map<S>({required S Function() ifNone, required S Function(V v) ifSome}) =>
+      ifSome(v);
+}
+
+
 
 /// 将其他任何类型转化为[Option]类型
 extension OptionFutureExt<T> on FutureOr<T?> {
