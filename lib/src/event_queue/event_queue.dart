@@ -3,9 +3,9 @@ import 'dart:collection';
 
 import 'package:equatable/equatable.dart';
 
+import '../../utils.dart';
 import 'future_any.dart';
 import 'future_or.dart';
-import 'max_min.dart';
 
 final _zoneToken = Object();
 final thenAwaitToken = Object();

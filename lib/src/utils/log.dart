@@ -4,7 +4,8 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:characters/characters.dart';
-import 'package:nop/nop.dart';
+
+import 'max_min.dart';
 
 const bool releaseMode =
     bool.fromEnvironment('dart.vm.product', defaultValue: false);
