@@ -187,8 +187,8 @@ abstract class Log {
       start = '$start$lable$name|';
     }
 
+    var color = '';
     if (kDartIsWeb || !Platform.isIOS) {
-      var color = '';
       if (lv <= 2) {
         color = _colors[lv];
       }
@@ -223,7 +223,7 @@ abstract class Log {
     }
     for (var i = 0; i < split.length; i++) {
       if (i < limitLength) {
-        zone.print('$start${split[i]}');
+        zone.print('$color${split[i]}');
       } else {
         var data = split[i];
         if (data.contains(_reg)) {
