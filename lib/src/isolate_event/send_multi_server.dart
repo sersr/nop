@@ -203,7 +203,7 @@ mixin SendMultiServerMixin on SendEvent, ListenMixin {
     dispose();
     notifyState(false);
     final rcHandle = ReceiveHandle();
-    final servers = Map.of(remoteServers)..removeWhere((e, v) => !v.killed);
+    final servers = Map.of(remoteServers)..removeWhere((e, v) => v.killed);
     for (var server in servers.entries) {
       _closeRemoteServer(rcHandle.sendHandle, server.key);
     }

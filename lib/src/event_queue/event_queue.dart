@@ -142,9 +142,21 @@ class EventQueue {
       final completer = Completer<T>();
       bool? outer;
       final zone = Zone.current;
+
+      void _onError(error, stackTrace) {
+        if (!completer.isCompleted) {
+          completer.completeError(error, stackTrace);
+        }
+      }
+
+      void _onValue(value) {
+        if (!completer.isCompleted) {
+          completer.complete(value);
+        }
+      }
+
       void run() {
-        zone.run(callback).then((value) => completer.complete(value),
-            onError: (e, s) => completer.completeError(e, s));
+        zone.run(callback).then(_onValue, onError: _onError);
       }
 
       scheduleMicrotask(() {
@@ -161,15 +173,7 @@ class EventQueue {
         }
         return completer.future;
       }, taskKey: taskKey, onlyLastOne: onlyLastOne)
-          .then((value) {
-        if (!completer.isCompleted) {
-          completer.complete(value);
-        }
-      }, onError: (error, stackTrace) {
-        if (!completer.isCompleted) {
-          completer.completeError(error, stackTrace);
-        }
-      });
+          .then(_onValue, onError: _onError);
 
       return completer.future;
     }
@@ -370,8 +374,10 @@ class _TaskEntry<T> {
   /// 不管 [onlyLast] 为任何值，最后一个任务都会执行
   final bool onlyLast;
 
-  bool get canDiscard => !_eventQueue.isLast && onlyLast;
+  bool get canDiscard => !_eventQueue.isLast && onlyLast && ignoreOrNull;
   bool get ignore => _taskIgnore?.ignore == true;
+  bool get ignoreOrNull => _taskIgnore?.ignore == null || ignore;
+
   bool get notIgnoreOrNull => !ignore;
 
   bool get notIgnore => !onlyLast || _taskIgnore?.ignore == false;

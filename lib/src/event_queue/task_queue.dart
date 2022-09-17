@@ -62,7 +62,7 @@ class TaskQueueGlobal extends TaskQueue with EquatableMixin {
 }
 
 bool get tqIgnore => EventQueue.currentTask?.ignore ?? false;
-
+bool get tqCanDiscard => EventQueue.currentTask?.canDiscard ?? false;
 mixin TaskQueueMixin {
   @protected
   S runTask<S>(S Function(EventQueue) callback);
@@ -72,6 +72,7 @@ mixin TaskQueueMixin {
   bool get actived;
 
   bool get ignore => tqIgnore;
+  bool get canDiscard => tqCanDiscard;
 
   Future<R?> runOne<R>(EventCallback<R> action, {Object? taskKey}) {
     return runTask((eventQueue) {
