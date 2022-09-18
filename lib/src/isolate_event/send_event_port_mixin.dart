@@ -46,19 +46,19 @@ mixin SendEventPortMixin on SendEvent implements Messager {
 
   @override
   Future<T?> sendMessage<T>(type, args, {String serverName = 'default'}) {
-    final _key = ListKey([type, args, T, serverName]);
+    final key = ListKey([type, args, T, serverName]);
 
-    if (_futureLists.containsKey(_key)) {
-      return _futureLists[_key]!.future as Future<T?>;
+    if (_futureLists.containsKey(key)) {
+      return _futureLists[key]!.future as Future<T?>;
     }
 
-    final _sender =
+    final sender =
         SenderCompleterPrivateHandle<T?>(_sendEventRemove, _sendEventResolve);
-    _sender.messageKey = _key;
-    _futureLists[_key] = _sender;
+    sender.messageKey = key;
+    _futureLists[key] = sender;
 
-    _send(type, args, _sender, serverName);
-    return _sender.future;
+    _send(type, args, sender, serverName);
+    return sender.future;
   }
 
   @override

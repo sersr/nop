@@ -67,10 +67,10 @@ mixin ListenerControllerMixin<T> {
   bool _listenFirst = true;
   bool get listenFirst => _listenFirst;
   void trigger() {
-    final _last = isPaused;
+    final lastPaused = isPaused;
     _isPaused = activeUnits.isEmpty;
 
-    if (_last != isPaused) notifyClient();
+    if (lastPaused != isPaused) notifyClient();
     if (_listenFirst) _listenFirst = false;
   }
 
@@ -97,8 +97,8 @@ mixin ListenerControllerMixin<T> {
   void cancel() {
     if (_canceled) return;
     _canceled = true;
-    final _c = List.of(listenUnits, growable: false);
-    for (var l in _c) {
+    final listeners = List.of(listenUnits, growable: false);
+    for (var l in listeners) {
       l.close();
     }
   }
@@ -106,8 +106,8 @@ mixin ListenerControllerMixin<T> {
   void dispose() {}
 
   SenderStream<T> get stream {
-    final _consumer = ListenerUnit<T>(this);
-    return _consumer.stream;
+    final consumer = ListenerUnit<T>(this);
+    return consumer.stream;
   }
 }
 

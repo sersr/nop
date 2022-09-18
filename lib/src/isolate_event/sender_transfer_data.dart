@@ -88,10 +88,10 @@ mixin TransferTypeMapDataList<E, D, T> on TransferTypeMapData<T> {
   @override
   FutureOr<void> tranEncode() async {
     if (raw != null) {
-      final _raw = List.of(raw!);
+      final rawDataList = List.of(raw!);
       raw = null;
-      for (var i = 0; i < _raw.length; i++) {
-        final data = await encodeToTypedData(_raw[i], i);
+      for (var i = 0; i < rawDataList.length; i++) {
+        final data = await encodeToTypedData(rawDataList[i], i);
         push('$prefix$i', TransferableTypedData.fromList([data]));
         await idleWait;
       }

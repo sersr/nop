@@ -21,8 +21,8 @@ class SenderCompleterPrivateHandle<T>
 
   @override
   void addData(dynamic data) {
-    dynamic _data = onResolve(data);
-    super.addData(_data);
+    dynamic messasgeData = onResolve(data);
+    super.addData(messasgeData);
   }
 
   @override
@@ -53,7 +53,7 @@ class SenderStreamPrivateHandle<T>
 
   @override
   void addData(dynamic data) {
-    dynamic _data = onResolve(data);
-    super.addData(_data);
+    dynamic messageData = onResolve(data);
+    super.addData(messageData);
   }
 }

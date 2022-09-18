@@ -10,9 +10,9 @@ import 'future_or.dart';
 final _zoneToken = Object();
 final thenAwaitToken = Object();
 
-/// [_TaskEntry._run]
+/// [TaskEntry._run]
 typedef EventCallback<T> = FutureOr<T> Function();
-typedef EventRunCallback<T> = Future<void> Function(_TaskEntry<T> task);
+typedef EventRunCallback<T> = Future<void> Function(TaskEntry<T> task);
 
 /// 以队列的形式进行并等待异步任务
 ///
@@ -24,9 +24,9 @@ class EventQueue {
   EventQueue.all() : channels = -1;
   final int channels;
 
-  static _TaskEntry? get currentTask {
-    final _t = Zone.current[_zoneToken];
-    if (_t is _TaskEntry) return _t;
+  static TaskEntry? get currentTask {
+    final task = Zone.current[_zoneToken];
+    if (task is TaskEntry) return task;
     return null;
   }
 
@@ -37,14 +37,14 @@ class EventQueue {
       {int channels = 1}) {
     final listKey = _TaskKeys(key, channels);
 
-    final _queue =
+    final queue =
         _tempQueues.putIfAbsent(listKey, () => EventQueue(channels: channels));
-    return run(_queue)
+    return run(queue)
       ..whenComplete(() {
-        _queue.runner.whenComplete(() {
+        queue.runner.whenComplete(() {
           Timer(Duration(milliseconds: delayRemove.maxThan(0)), () {
-            final _q = _tempQueues[listKey];
-            if (!_queue.actived && _q == _queue) {
+            final cache = _tempQueues[listKey];
+            if (!queue.actived && cache == queue) {
               _tempQueues.remove(listKey);
             }
           });
@@ -91,34 +91,34 @@ class EventQueue {
     return _tempQueues.length;
   }
 
-  final _taskPool = ListQueue<_TaskEntry>();
+  final _taskPool = ListQueue<TaskEntry>();
 
   bool get isLast => _taskPool.isEmpty;
 
   Future<T> _addEventTask<T>(EventCallback<T> callback,
       {bool onlyLastOne = false, Object? taskKey}) {
-    final _task = _TaskEntry<T>(
+    final task = TaskEntry<T>(
       queue: this,
       taskKey: taskKey,
       callback: callback,
       onlyLast: onlyLastOne,
     );
 
-    _taskPool.add(_task);
+    _taskPool.add(task);
 
-    final key = _task.taskKey;
-    final future = _task.future;
+    final key = task.taskKey;
+    final future = task.future;
     if (key != null) {
-      final taskList = _taskKeyGroups.putIfAbsent(key, () => <_TaskEntry>{});
+      final taskList = _taskKeyGroups.putIfAbsent(key, () => <TaskEntry>{});
       if (taskList.isEmpty) {
-        _task._taskIgnore = _TaskIgnore(true);
+        task._taskIgnore = _TaskIgnore(true);
       } else {
         assert(taskList.first._taskIgnore != null);
-        _task._taskIgnore = taskList.first._taskIgnore;
+        task._taskIgnore = taskList.first._taskIgnore;
       }
-      taskList.add(_task);
+      taskList.add(task);
       future.whenComplete(() {
-        taskList.remove(_task);
+        taskList.remove(task);
         if (taskList.isEmpty) {
           _taskKeyGroups.remove(key);
         }
@@ -143,20 +143,20 @@ class EventQueue {
       bool? outer;
       final zone = Zone.current;
 
-      void _onError(error, stackTrace) {
+      void onError(error, stackTrace) {
         if (!completer.isCompleted) {
           completer.completeError(error, stackTrace);
         }
       }
 
-      void _onValue(value) {
+      void onValue(value) {
         if (!completer.isCompleted) {
           completer.complete(value);
         }
       }
 
       void run() {
-        zone.run(callback).then(_onValue, onError: _onError);
+        zone.run(callback).then(onValue, onError: onError);
       }
 
       scheduleMicrotask(() {
@@ -173,7 +173,7 @@ class EventQueue {
         }
         return completer.future;
       }, taskKey: taskKey, onlyLastOne: onlyLastOne)
-          .then(_onValue, onError: _onError);
+          .then(onValue, onError: onError);
 
       return completer.future;
     }
@@ -195,7 +195,7 @@ class EventQueue {
     return _awaitTask<T?>(callback, taskKey: taskKey, onlyLastOne: true);
   }
 
-  /// 内部实现依赖[_TaskEntry]的future，
+  /// 内部实现依赖[TaskEntry]的future，
   /// 如果满足下面条件就不能进入任务队列
   @pragma('vm:prefer-inline')
   bool doNotEnterQueue() {
@@ -244,11 +244,11 @@ class EventQueue {
   }
 
   final _tasks = FutureAny();
-  final _taskKeyGroups = <Object, Set<_TaskEntry>>{};
+  final _taskKeyGroups = <Object, Set<TaskEntry>>{};
 
-  static Future<void> runEvent(_TaskEntry task) => task._runZone();
+  static Future<void> runEvent(TaskEntry task) => task._runZone();
 
-  Future<void> _limited(_TaskEntry task) async {
+  Future<void> _limited(TaskEntry task) async {
     _tasks.add(runEvent(task));
 
     // 达到 channels 数              ||  最后一个
@@ -259,7 +259,7 @@ class EventQueue {
     }
   }
 
-  Future<void> _runAll(_TaskEntry task) async {
+  Future<void> _runAll(TaskEntry task) async {
     _tasks.add(runEvent(task));
 
     if (_taskPool.isEmpty) {
@@ -340,8 +340,8 @@ class EventQueue {
   }
 }
 
-class _TaskEntry<T> {
-  _TaskEntry({
+class TaskEntry<T> {
+  TaskEntry({
     required this.callback,
     required EventQueue queue,
     this.taskKey,
@@ -359,8 +359,8 @@ class _TaskEntry<T> {
   final EventCallback<T> callback;
 
   EventCallback<T>? get thenAwait {
-    final _thenAwait = _zone[thenAwaitToken];
-    if (_thenAwait is EventCallback<T>) return _thenAwait;
+    final thenAwaitCallback = _zone[thenAwaitToken];
+    if (thenAwaitCallback is EventCallback<T>) return thenAwaitCallback;
     return null;
   }
 

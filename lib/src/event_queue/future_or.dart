@@ -1,7 +1,7 @@
 import 'dart:async';
 
-typedef _Callback<S, T> = S Function(T);
-typedef _CombineCallback<S, T> = S Function(S, T);
+typedef Callback<S, T> = S Function(T);
+typedef CombineCallback<S, T> = S Function(S, T);
 
 extension FutureOrNull<T> on FutureOr<T>? {
   FutureOr<S> andThen<S>(FutureOr<S> Function(T? value) action,
@@ -83,7 +83,7 @@ extension FutureOrIterable<T> on FutureOr<Iterable<T>> {
     return _innerThen((list) => list.followedBy(other));
   }
 
-  FutureOr<Iterable<S>> map<S>(_Callback<S, T> m) {
+  FutureOr<Iterable<S>> map<S>(Callback<S, T> m) {
     return _innerThen((list) => list.map(m));
   }
 
@@ -95,7 +95,7 @@ extension FutureOrIterable<T> on FutureOr<Iterable<T>> {
     return _innerThen((list) => list.whereType<S>());
   }
 
-  FutureOr<Iterable<T>> expand(_Callback<Iterable<T>, T> test) {
+  FutureOr<Iterable<T>> expand(Callback<Iterable<T>, T> test) {
     return _innerThen((list) => list.expand(test));
   }
 
@@ -103,19 +103,19 @@ extension FutureOrIterable<T> on FutureOr<Iterable<T>> {
     return _innerThen((list) => list.contains(element));
   }
 
-  FutureOr<void> forEach(_Callback<void, T> test) {
+  FutureOr<void> forEach(Callback<void, T> test) {
     return _innerThen((list) => list.forEach(test));
   }
 
-  FutureOr<T> reduce(_CombineCallback<T, T> combine) {
+  FutureOr<T> reduce(CombineCallback<T, T> combine) {
     return _innerThen((list) => list.reduce(combine));
   }
 
-  FutureOr<S> fold<S>(S initialValue, _CombineCallback<S, T> test) {
+  FutureOr<S> fold<S>(S initialValue, CombineCallback<S, T> test) {
     return _innerThen((list) => list.fold<S>(initialValue, test));
   }
 
-  FutureOr<bool> every(_Callback<bool, T> test) {
+  FutureOr<bool> every(Callback<bool, T> test) {
     return _innerThen((list) => list.every(test));
   }
 
@@ -123,7 +123,7 @@ extension FutureOrIterable<T> on FutureOr<Iterable<T>> {
     return _innerThen((list) => list.join());
   }
 
-  FutureOr<bool> any(_Callback<bool, T> test) {
+  FutureOr<bool> any(Callback<bool, T> test) {
     return _innerThen((list) => list.any(test));
   }
 
@@ -151,7 +151,7 @@ extension FutureOrIterable<T> on FutureOr<Iterable<T>> {
     return _innerThen((list) => list.take(count));
   }
 
-  FutureOr<Iterable<T>> takeWhile(_Callback<bool, T> take) {
+  FutureOr<Iterable<T>> takeWhile(Callback<bool, T> take) {
     return _innerThen((list) => list.takeWhile(take));
   }
 
@@ -159,7 +159,7 @@ extension FutureOrIterable<T> on FutureOr<Iterable<T>> {
     return _innerThen((list) => list.skip(count));
   }
 
-  FutureOr<Iterable<T>> skipWhile(_Callback<bool, T> test) {
+  FutureOr<Iterable<T>> skipWhile(Callback<bool, T> test) {
     return _innerThen((list) => list.skipWhile(test));
   }
 
@@ -175,15 +175,15 @@ extension FutureOrIterable<T> on FutureOr<Iterable<T>> {
     return _innerThen((list) => list.single);
   }
 
-  FutureOr<T> firstWhere(_Callback<bool, T> test, {T Function()? orElse}) {
+  FutureOr<T> firstWhere(Callback<bool, T> test, {T Function()? orElse}) {
     return _innerThen((list) => list.firstWhere(test, orElse: orElse));
   }
 
-  FutureOr<T> lastWhere(_Callback<bool, T> test, {T Function()? orElse}) {
+  FutureOr<T> lastWhere(Callback<bool, T> test, {T Function()? orElse}) {
     return _innerThen((list) => list.lastWhere(test, orElse: orElse));
   }
 
-  FutureOr<T> singleWhere(_Callback<bool, T> test, {T Function()? orElse}) {
+  FutureOr<T> singleWhere(Callback<bool, T> test, {T Function()? orElse}) {
     return _innerThen((list) => list.singleWhere(test, orElse: orElse));
   }
 

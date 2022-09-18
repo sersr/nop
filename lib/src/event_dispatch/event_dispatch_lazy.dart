@@ -12,13 +12,13 @@ class StreamLazyController<T> with StreamLazyMixin<T> {}
 ///
 /// [_StreamSubscriptionUnit]:[pause]、[resume]、[cancel]都是同步操作
 mixin StreamLazyMixin<T> {
-  final dirtyUnits = <_StreamSubscriptionUnit<T>>{};
-  final activeUnits = <_StreamSubscriptionUnit<T>>{};
-  final pausedUnits = <_StreamSubscriptionUnit<T>>{};
+  final dirtyUnits = <StreamSubscriptionUnit<T>>{};
+  final activeUnits = <StreamSubscriptionUnit<T>>{};
+  final pausedUnits = <StreamSubscriptionUnit<T>>{};
 
   T? lastData;
 
-  void _childResume(_StreamSubscriptionUnit<T> child) {
+  void _childResume(StreamSubscriptionUnit<T> child) {
     /// T 可以是 T 或 T?
     if (lastData is T) {
       child.sendData(lastData as T);
@@ -29,7 +29,7 @@ mixin StreamLazyMixin<T> {
 
   List<T>? _caches;
 
-  void onListen(_StreamSubscriptionUnit<T> child) {
+  void onListen(StreamSubscriptionUnit<T> child) {
     if (_listenFirst) return;
     if (shouldCache) {
       if (_caches != null) {
@@ -95,12 +95,12 @@ mixin StreamLazyMixin<T> {
 
   /// 如果`isPaused`状态没有改变,`resume`时有可能发生这种情况
   /// 手动为`self`更新数据
-  void trigger({_StreamSubscriptionUnit<T>? self}) {
-    final _last = isPaused;
+  void trigger({StreamSubscriptionUnit<T>? self}) {
+    final lastPaused = isPaused;
     _isPaused = activeUnits.isEmpty;
 
     var notified = false;
-    if (_last != isPaused) {
+    if (lastPaused != isPaused) {
       notifyClient();
       notified = true;
     }
@@ -137,24 +137,24 @@ mixin StreamLazyMixin<T> {
       _dispose();
       return;
     }
-    final _active = List.of(activeUnits, growable: false);
-    final _paused = List.of(pausedUnits, growable: false);
-    final _ditry = List.of(dirtyUnits, growable: false);
-    _active.forEach(_close);
-    _paused.forEach(_close);
-    _ditry.forEach(_close);
+    final active = List.of(activeUnits, growable: false);
+    final paused = List.of(pausedUnits, growable: false);
+    final ditry = List.of(dirtyUnits, growable: false);
+    active.forEach(_close);
+    paused.forEach(_close);
+    ditry.forEach(_close);
   }
 
-  static void _close<T>(_StreamSubscriptionUnit<T> item) {
+  static void _close<T>(StreamSubscriptionUnit<T> item) {
     item.sendDone();
   }
 
   /// 没有监听者调用一次
   void dispose() {}
 
-  _SenderLayzeStream<T> get stream => _SenderLayzeStream<T>(this);
-  _SenderLayzeStream<T> get streamAsync =>
-      _SenderLayzeStream<T>(this, async: true);
+  SenderLayzeStream<T> get stream => SenderLayzeStream<T>(this);
+  SenderLayzeStream<T> get streamAsync =>
+      SenderLayzeStream<T>(this, async: true);
 
   StreamSubscription<T> listen(
     void Function(T event)? onData, {
@@ -163,12 +163,12 @@ mixin StreamLazyMixin<T> {
     bool? cancelOnError,
     bool async = false,
   }) {
-    final _StreamSubscriptionUnit<T> sub;
+    final StreamSubscriptionUnit<T> sub;
     if (async) {
       sub = _StreamSubscriptionAsyncUnit<T>(this, onData,
           onError: onError, onDone: onDone, cancelOnError: cancelOnError);
     } else {
-      sub = _StreamSubscriptionUnit<T>(this, onData,
+      sub = StreamSubscriptionUnit<T>(this, onData,
           onError: onError, onDone: onDone, cancelOnError: cancelOnError);
     }
     if (_canceled) {
@@ -181,9 +181,9 @@ mixin StreamLazyMixin<T> {
     return sub;
   }
 
-  static bool ifSelfCancel(_StreamSubscriptionUnit self) => self._canceled;
+  static bool ifSelfCancel(StreamSubscriptionUnit self) => self._canceled;
 
-  void _onListen(_StreamSubscriptionUnit<T> self) {
+  void _onListen(StreamSubscriptionUnit<T> self) {
     assert(!_canceled);
     assert(!self._canceled);
     assert(!dirtyUnits.contains(self));
@@ -194,7 +194,7 @@ mixin StreamLazyMixin<T> {
     trigger();
   }
 
-  void _onResume(_StreamSubscriptionUnit<T> self) {
+  void _onResume(StreamSubscriptionUnit<T> self) {
     if (ifSelfCancel(self)) return;
     final dirty = self._dirty;
     if (dirty) {
@@ -209,7 +209,7 @@ mixin StreamLazyMixin<T> {
     trigger(self: dirty ? self : null);
   }
 
-  void _onPause(_StreamSubscriptionUnit<T> self) {
+  void _onPause(StreamSubscriptionUnit<T> self) {
     if (ifSelfCancel(self)) return;
     if (pausedUnits.contains(self) || dirtyUnits.contains(self)) return;
     activeUnits.remove(self);
@@ -217,7 +217,7 @@ mixin StreamLazyMixin<T> {
     trigger();
   }
 
-  void _onCancel(_StreamSubscriptionUnit<T> self) {
+  void _onCancel(StreamSubscriptionUnit<T> self) {
     if (ifSelfCancel(self)) return;
     assert(self._dirty || !dirtyUnits.contains(self));
     if (self._dirty) {
@@ -234,8 +234,8 @@ mixin StreamLazyMixin<T> {
 }
 
 // stream delegate
-class _SenderLayzeStream<T> extends Stream<T> {
-  _SenderLayzeStream(this._source, {this.async = false});
+class SenderLayzeStream<T> extends Stream<T> {
+  SenderLayzeStream(this._source, {this.async = false});
   final StreamLazyMixin<T> _source;
   final bool async;
 
@@ -252,8 +252,8 @@ class _SenderLayzeStream<T> extends Stream<T> {
   }
 }
 
-typedef _DataHandler<T> = void Function(T value);
-typedef _DoneHandler = void Function();
+typedef DataHandler<T> = void Function(T value);
+typedef DoneHandler = void Function();
 
 void _nullOnDataHandler(dynamic value) {}
 void _nullOnDoneHandler() {}
@@ -261,13 +261,13 @@ void _nullOnErrorHandler(Object error, StackTrace stackTrace) {
   Zone.current.handleUncaughtError(error, stackTrace);
 }
 
-class _StreamSubscriptionUnit<T> extends StreamSubscription<T> {
-  _StreamSubscriptionUnit(
-      StreamLazyMixin<T> _source, void Function(T event)? onData,
+class StreamSubscriptionUnit<T> extends StreamSubscription<T> {
+  StreamSubscriptionUnit(
+      StreamLazyMixin<T> source, void Function(T event)? onData,
       {Function? onError, void Function()? onDone, bool? cancelOnError})
-      : this.zone(Zone.current, _source, onData,
+      : this.zone(Zone.current, source, onData,
             onError: onError, onDone: onDone, cancelOnError: cancelOnError);
-  _StreamSubscriptionUnit.zone(
+  StreamSubscriptionUnit.zone(
       this.zone, this._source, void Function(T event)? onData,
       {Function? onError, void Function()? onDone, bool? cancelOnError})
       : _cancelOnError = cancelOnError ?? false,
@@ -278,21 +278,21 @@ class _StreamSubscriptionUnit<T> extends StreamSubscription<T> {
   final StreamLazyMixin<T> _source;
 
   Zone zone;
-  _DataHandler<T> _onData;
-  _DoneHandler _onDone;
+  DataHandler<T> _onData;
+  DoneHandler _onDone;
   Function _onError;
   bool _cancelOnError;
 
   @override
   Future<E> asFuture<E>([E? futureValue]) {
-    final _future = Completer<E>();
+    final completer = Completer<E>();
     _onDone = () {
-      _future.complete(futureValue);
+      completer.complete(futureValue);
     };
     _onError = (error, stackTrace) {
-      _future.completeError(error, stackTrace);
+      completer.completeError(error, stackTrace);
     };
-    return _future.future;
+    return completer.future;
   }
 
   @override
@@ -303,7 +303,7 @@ class _StreamSubscriptionUnit<T> extends StreamSubscription<T> {
     _onData = onDataHandle(zone, handleData);
   }
 
-  static _DataHandler<T> onDataHandle<T>(
+  static DataHandler<T> onDataHandle<T>(
       Zone zone, void Function(T data)? handleData) {
     return zone
         .registerUnaryCallback<void, T>(handleData ?? _nullOnDataHandler);
@@ -314,7 +314,7 @@ class _StreamSubscriptionUnit<T> extends StreamSubscription<T> {
     _onDone = onDoneHandler(zone, handleDone);
   }
 
-  static _DoneHandler onDoneHandler(Zone zone, void Function()? handleDone) {
+  static DoneHandler onDoneHandler(Zone zone, void Function()? handleDone) {
     return zone.registerCallback<void>(handleDone ?? _nullOnDoneHandler);
   }
 
@@ -399,11 +399,11 @@ class _StreamSubscriptionUnit<T> extends StreamSubscription<T> {
   }
 }
 
-class _StreamSubscriptionAsyncUnit<T> extends _StreamSubscriptionUnit<T> {
+class _StreamSubscriptionAsyncUnit<T> extends StreamSubscriptionUnit<T> {
   _StreamSubscriptionAsyncUnit(
-      StreamLazyMixin<T> _source, void Function(T event)? onData,
+      StreamLazyMixin<T> source, void Function(T event)? onData,
       {Function? onError, void Function()? onDone, bool? cancelOnError})
-      : super.zone(Zone.current, _source, onData,
+      : super.zone(Zone.current, source, onData,
             onError: onError, onDone: onDone, cancelOnError: cancelOnError);
 
   FutureOr<void> get runner {

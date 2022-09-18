@@ -64,8 +64,8 @@ class FutureAny {
   }
 
   void addAll(Iterable<Future> tasks) {
-    for (final _task in tasks) {
-      add(_task);
+    for (final task in tasks) {
+      add(task);
     }
   }
 }

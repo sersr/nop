@@ -72,15 +72,15 @@ mixin SendEventMixin implements SendEvent, Messager {
   @override
   Future<T?> sendMessage<T>(dynamic type, dynamic args,
       {String serverName = 'default'}) {
-    final _key = ListKey([type, args, T, serverName]);
+    final key = ListKey([type, args, T, serverName]);
 
-    if (_futureLists.containsKey(_key)) {
-      return _futureLists[_key]!.future as Future<T?>;
+    if (_futureLists.containsKey(key)) {
+      return _futureLists[key]!.future as Future<T?>;
     }
 
     final sender = SenderCompleter<T?>(_remove);
-    _futureLists[_key] = sender;
-    sender.messageKey = _key;
+    _futureLists[key] = sender;
+    sender.messageKey = key;
     _send(type, args, sender, serverName);
 
     return sender.future;
@@ -93,32 +93,32 @@ mixin SendEventMixin implements SendEvent, Messager {
       {bool unique = false,
       bool cached = false,
       String serverName = 'default'}) {
-    Object _key;
+    Object key;
     if (unique) {
-      _key = Object();
+      key = Object();
     } else {
-      _key = ListKey([type, args, T, serverName]);
+      key = ListKey([type, args, T, serverName]);
     }
     bool shouldCache = cached && !unique;
-    if (_streamLists.containsKey(_key)) {
-      return _streamLists[_key]!.stream as Stream<T>;
+    if (_streamLists.containsKey(key)) {
+      return _streamLists[key]!.stream as Stream<T>;
     }
 
     final sender = SenderStreamController<T>(_remove, _sendKey, shouldCache);
-    _streamLists[_key] = sender;
-    sender.messageKey = _key;
+    _streamLists[key] = sender;
+    sender.messageKey = key;
     _send(type, args, sender, serverName);
 
     return sender.streamAsync;
   }
 
   void _send(dynamic type, dynamic args, Sender sender, String serverName) {
-    final _id = sender.identityKey;
-    assert(!_messageCaches.containsKey(_id));
+    final id = sender.identityKey;
+    assert(!_messageCaches.containsKey(id));
     sender.serverName = serverName;
-    _messageCaches[_id] = sender;
+    _messageCaches[id] = sender;
 
-    send(SendMessage(type, args, _id, serverName));
+    send(SendMessage(type, args, id, serverName));
   }
 
   void _sendKey(dynamic id, KeyType keyType, String? serverName) {

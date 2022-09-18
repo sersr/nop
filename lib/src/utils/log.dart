@@ -163,9 +163,10 @@ abstract class Log {
         final spl = item.split(reg);
         if (spl.length >= 3) {
           if (!kDartIsWeb) {
-            final _s = spl[1].split('.');
-            name = _s
-                .sublist(_s.length <= 1 ? 0 : 1, math.min(2, _s.length))
+            final splitted = spl[1].split('.');
+            name = splitted
+                .sublist(
+                    splitted.length <= 1 ? 0 : 1, math.min(2, splitted.length))
                 .join('.');
             path = spl.last;
             var padLength = functionLength - lable.length;
@@ -199,8 +200,8 @@ abstract class Log {
       if (debugMode) {
         end = '$end $path';
       } else {
-        var _path = path.replaceAll(')', '');
-        end = '$end $_path:1)';
+        var pathRemoved = path.replaceAll(')', '');
+        end = '$end $pathRemoved:1)';
       }
     }
 
@@ -258,14 +259,14 @@ abstract class Log {
   static final _reg = RegExp(r'\((package|dart):.*\)');
 
   static Iterable<String> splitString(Object source, {int lines = 0}) sync* {
-    final _s = source.toString();
-    if (_reg.hasMatch(_s) || _s.isEmpty) {
+    final sourceStr = source.toString();
+    if (_reg.hasMatch(sourceStr) || sourceStr.isEmpty) {
       // final first = _reg.firstMatch(_s);
       // print('first: ${first?[0]}');
-      yield _s;
+      yield sourceStr;
       return;
     }
-    final rawSource = _s.characters;
+    final rawSource = sourceStr.characters;
     final length = rawSource.length;
     const maxLength = 110;
     const halfLength = maxLength / 2;

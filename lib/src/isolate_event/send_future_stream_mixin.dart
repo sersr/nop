@@ -17,17 +17,17 @@ mixin SenderAddDataMixin<T> on Sender {
 
   @override
   void addData(dynamic data) {
-    dynamic _data = data;
-    if (_data is TransferType<T>) {
-      _data.decode().then((value) {
+    dynamic messageData = data;
+    if (messageData is TransferType<T>) {
+      messageData.decode().then((value) {
         if (!completer.isCompleted) completer.complete(value);
       });
       return;
-    } else if (T == dynamic && _data is TransferableTypedData) {
-      _data = _data.materialize();
+    } else if (T == dynamic && messageData is TransferableTypedData) {
+      messageData = messageData.materialize();
     }
     if (!completer.isCompleted) {
-      completer.complete(_data);
+      completer.complete(messageData);
     }
   }
 
@@ -50,7 +50,7 @@ mixin ListenerControllerStreamMixin<T> on Sender, StreamLazyMixin<T> {
   late final _quque = EventQueue();
   @override
   void addData(dynamic data) {
-    dynamic _data = data;
+    dynamic messageData = data;
     if (data is StreamState) {
       _quque.addEventTask(() {
         if (data == StreamState.done) {
@@ -61,17 +61,17 @@ mixin ListenerControllerStreamMixin<T> on Sender, StreamLazyMixin<T> {
       });
       return;
     }
-    if (_data is TransferType<T>) {
+    if (messageData is TransferType<T>) {
       _quque.addEventTask(
-        () => _data.decode().then((value) {
+        () => messageData.decode().then((value) {
           if (!isCanceled) add(value);
         }),
       );
       return;
-    } else if (T == dynamic && _data is TransferableTypedData) {
-      _data = _data.materialize();
+    } else if (T == dynamic && messageData is TransferableTypedData) {
+      messageData = messageData.materialize();
     }
-    add(_data);
+    add(messageData);
   }
 
   @override
