@@ -1,6 +1,6 @@
 name: nop
 description: Isolate 通信
-version: 0.0.3
+version: 0.0.3+1
 repository: https://github.com/sersr/nop
 
 environment:
@@ -11,7 +11,6 @@ dependencies:
   characters: ^1.2.0
   collection: ^1.15.0
   equatable: ^2.0.2
-  nop_annotations: ^0.1.1
 
 dev_dependencies:
   flutter_test:
