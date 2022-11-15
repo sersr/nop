@@ -3,5 +3,5 @@ mixin Sender {
   void cancel();
   late final Object identityKey = Object();
   Object? messageKey;
-  String? isolateName;
+  String? serverName;
 }
