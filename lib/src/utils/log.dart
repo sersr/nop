@@ -60,6 +60,8 @@ abstract class Log {
     int lines = 0,
     int position = 0,
     Zone? zone,
+    bool split = true,
+    bool showTag = true,
   }) {
     return _log(
       Log.info,
@@ -69,6 +71,8 @@ abstract class Log {
       zone,
       lines: lines,
       position: ++position,
+      split: split,
+      showTag: showTag,
     );
   }
 
@@ -79,6 +83,8 @@ abstract class Log {
     int lines = 0,
     int position = 0,
     Zone? zone,
+    bool split = true,
+    bool showTag = true,
   }) {
     return _log(
       Log.warn,
@@ -88,6 +94,8 @@ abstract class Log {
       zone,
       lines: lines,
       position: ++position,
+      split: split,
+      showTag: showTag,
     );
   }
 
@@ -98,6 +106,8 @@ abstract class Log {
     int lines = 0,
     int position = 0,
     Zone? zone,
+    bool split = true,
+    bool showTag = true,
   }) {
     return _log(
       Log.error,
@@ -107,6 +117,8 @@ abstract class Log {
       zone,
       lines: lines,
       position: ++position,
+      split: split,
+      showTag: showTag,
     );
   }
 
@@ -117,6 +129,8 @@ abstract class Log {
     bool onlyDebug = true,
     int lines = 0,
     int position = 0,
+    bool split = true,
+    bool showTag = true,
     Zone? zone,
   }) {
     return _log(
@@ -127,6 +141,8 @@ abstract class Log {
       zone,
       lines: lines,
       position: ++position,
+      split: split,
+      showTag: showTag,
     );
   }
 
@@ -140,6 +156,8 @@ abstract class Log {
     Zone? zone, {
     int lines = 0,
     int position = 1,
+    bool split = true,
+    bool showTag = true,
   }) {
     if (!debugMode && onlyDebug) return true;
     position++;
@@ -153,39 +171,46 @@ abstract class Log {
     }
     var path = '', name = '';
 
-    final st = StackTrace.current.toString();
+    if (showTag) {
+      final st = StackTrace.current.toString();
 
-    final sp = LineSplitter.split(st);
-    var count = -1;
-    for (var item in sp) {
-      count++;
-      if (count == position) {
-        final spl = item.split(reg);
-        if (spl.length >= 3) {
-          if (!kDartIsWeb) {
-            final splitted = spl[1].split('.');
-            name = splitted
-                .sublist(
-                    splitted.length <= 1 ? 0 : 1, math.min(2, splitted.length))
-                .join('.');
-            path = spl.last;
-            var padLength = functionLength - lable.length;
-            padLength = padLength.maxThan(0);
-            if (name.length > padLength) {
-              final max = (padLength - 3).maxThan(0);
-              name = '${name.substring(0, max)}...';
+      final sp = LineSplitter.split(st);
+      var count = -1;
+      for (var item in sp) {
+        count++;
+        if (count == position) {
+          final spl = item.split(reg);
+          if (spl.length >= 3) {
+            if (!kDartIsWeb) {
+              final splitted = spl[1].split('.');
+              name = splitted
+                  .sublist(splitted.length <= 1 ? 0 : 1,
+                      math.min(2, splitted.length))
+                  .join('.');
+              path = spl.last;
+              var padLength = functionLength - lable.length;
+              padLength = padLength.maxThan(0);
+              if (name.length > padLength) {
+                final max = (padLength - 3).maxThan(0);
+                name = '${name.substring(0, max)}...';
+              } else {
+                name = name.padRight(padLength);
+              }
             } else {
-              name = name.padRight(padLength);
+              name = spl[1];
             }
-          } else {
-            name = spl[1];
           }
+          break;
         }
-        break;
       }
     }
+
     if (!kDartIsWeb) {
-      start = '$start$lable$name|';
+      if (!showTag) {
+        start = '$start$lable';
+      } else {
+        start = '$start$lable$name|';
+      }
     }
 
     var color = '';
@@ -205,28 +230,30 @@ abstract class Log {
       }
     }
 
-    List<String> split;
+    List<String> splits;
     if (message is Iterable) {
-      split = message
-          .expand((e) => '$e'.split('\n').where((e) => e.isNotEmpty))
-          .expand((e) => splitString(e, lines: lines))
-          .toList();
+      var s =
+          message.expand((e) => '$e'.split('\n').where((e) => e.isNotEmpty));
+      if (split) {
+        s = s.expand((e) => splitString(e, lines: lines));
+      }
+      splits = s.toList();
     } else {
-      split = '$message'
-          .split('\n')
-          .where((e) => e.isNotEmpty)
-          .expand((e) => splitString(e, lines: lines))
-          .toList();
+      var s = '$message'.split('\n').where((e) => e.isNotEmpty);
+      if (split) {
+        s = s.expand((e) => splitString(e, lines: lines));
+      }
+      splits = s.toList();
     }
-    var limitLength = split.length - 1;
+    var limitLength = splits.length - 1;
     if (lines > 0) {
       limitLength = math.min(lines, limitLength);
     }
-    for (var i = 0; i < split.length; i++) {
+    for (var i = 0; i < splits.length; i++) {
       if (i < limitLength) {
-        zone.print('$color${split[i]}');
+        zone.print('$color${splits[i]}');
       } else {
-        var data = split[i];
+        var data = splits[i];
         if (data.contains(_reg)) {
           if (!debugMode) {
             data = data.replaceAll(')', '');
