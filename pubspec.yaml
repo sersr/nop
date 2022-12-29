@@ -1,6 +1,6 @@
 name: nop
 description: Isolate 通信
-version: 0.0.4
+version: 0.0.4+1
 repository: https://github.com/sersr/nop
 
 environment:
