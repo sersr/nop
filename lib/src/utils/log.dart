@@ -15,6 +15,8 @@ const bool profileMode =
 const bool debugMode = !releaseMode && !profileMode;
 const _colors = ['\x1B[39m', '\x1B[33m', '\x1B[31m'];
 
+typedef LogPathFn = String? Function(String path);
+
 abstract class Log {
   static const int info = 0;
   static const int warn = 1;
@@ -22,6 +24,26 @@ abstract class Log {
   static int level = 0;
   static int functionLength = 18;
   static final zonePrintLable = Object();
+
+  /// Example:
+  /// ```dart
+  /// final reg = RegExp(r'\((package:)(.+?)/(.*)');
+  /// Log.logPathFn = (path) {
+  ///   final newPath = path.replaceFirstMapped(reg, (match) {
+  ///     final package = match[2];
+  ///     if (package == 'demo') {
+  ///       return '(./lib/${match[3]}';
+  ///     }
+  ///
+  ///     return '';
+  ///   });
+  ///   if (newPath.isEmpty) {
+  ///     return null;
+  ///   }
+  ///   return newPath;
+  /// };
+  /// ```
+  static LogPathFn? logPathFn;
 
   static Future<R> logRun<R>(Future<R> Function() body,
       {bool canPrint = true, Map<Object, Object>? zoneValues}) {
@@ -170,10 +192,11 @@ abstract class Log {
       lable = '$zoneLable | ';
     }
     var path = '', name = '';
-
+    if (kDartIsWeb) {
+      position += 1;
+    }
     if (showTag) {
       final st = StackTrace.current.toString();
-
       final sp = LineSplitter.split(st);
       var count = -1;
       for (var item in sp) {
@@ -181,23 +204,28 @@ abstract class Log {
         if (count == position) {
           final spl = item.split(reg);
           if (spl.length >= 3) {
-            if (!kDartIsWeb) {
-              final splitted = spl[1].split('.');
-              name = splitted
-                  .sublist(splitted.length <= 1 ? 0 : 1,
-                      math.min(2, splitted.length))
-                  .join('.');
-              path = spl.last;
-              var padLength = functionLength - lable.length;
-              padLength = padLength.maxThan(0);
-              if (name.length > padLength) {
-                final max = (padLength - 3).maxThan(0);
-                name = '${name.substring(0, max)}...';
-              } else {
-                name = name.padRight(padLength);
-              }
+            String nameList;
+            if (kDartIsWeb) {
+              nameList = spl.last;
+              final head = spl[0].replaceFirst('packages/', 'package:');
+              path = logPathFn?.call('($head:${spl[1]})') ?? path;
             } else {
-              name = spl[1];
+              nameList = spl[1];
+              path = logPathFn?.call(spl.last) ?? path;
+            }
+            final splitted = nameList.split('.');
+            name = splitted
+                .sublist(
+                    splitted.length <= 1 ? 0 : 1, math.min(2, splitted.length))
+                .join('.');
+
+            var padLength = functionLength - lable.length;
+            padLength = padLength.maxThan(0);
+            if (name.length > padLength) {
+              final max = (padLength - 3).maxThan(0);
+              name = '${name.substring(0, max)}...';
+            } else {
+              name = name.padRight(padLength);
             }
           }
           break;
@@ -205,12 +233,10 @@ abstract class Log {
       }
     }
 
-    if (!kDartIsWeb) {
-      if (!showTag) {
-        start = '$start$lable';
-      } else {
-        start = '$start$lable$name|';
-      }
+    if (!showTag) {
+      start = '$start$lable';
+    } else {
+      start = '$start$lable$name|';
     }
 
     var color = '';
@@ -221,7 +247,7 @@ abstract class Log {
       start = '$color$start';
       end = '\x1B[0m';
     }
-    if (!kDartIsWeb && showPath) {
+    if (showPath) {
       if (debugMode) {
         end = '$end $path';
       } else {
