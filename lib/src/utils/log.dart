@@ -250,7 +250,7 @@ abstract class Log {
     if (showPath) {
       if (debugMode) {
         end = '$end $path';
-      } else {
+      } else if (path.isNotEmpty) {
         var pathRemoved = path.replaceAll(')', '');
         end = '$end $pathRemoved:1)';
       }
