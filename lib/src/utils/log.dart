@@ -15,7 +15,7 @@ const bool profileMode =
 const bool debugMode = !releaseMode && !profileMode;
 const _colors = ['\x1B[39m', '\x1B[33m', '\x1B[31m'];
 
-typedef LogPathFn = String? Function(String path);
+typedef LogPathFn = dynamic Function(String path);
 
 abstract class Log {
   static const int info = 0;
@@ -23,26 +23,28 @@ abstract class Log {
   static const int error = 2;
   static int level = 0;
   static int functionLength = 18;
-  static final zonePrintLable = Object();
+  static final zonePrintLabel = Object();
 
   /// Example:
   /// ```dart
-  /// final reg = RegExp(r'\((package:)(.+?)/(.*)');
-  /// Log.logPathFn = (path) {
-  ///   final newPath = path.replaceFirstMapped(reg, (match) {
-  ///     final package = match[2];
-  ///     if (package == 'demo') {
-  ///       return '(./lib/${match[3]}';
-  ///     }
-  ///
-  ///     return '';
-  ///   });
-  ///   if (newPath.isEmpty) {
-  ///     return null;
-  ///   }
-  ///   return newPath;
-  /// };
+  ///   final reg = RegExp(r'\((package:)(.+?)/(.*)');
+  ///  Log.logPathFn = (path) {
+  ///    final newPath = path.replaceFirstMapped(reg, (match) {
+  ///      final package = match[2];
+  ///      return switch (package) {
+  ///        == 'demo' => '(./lib/${match[3]}',
+  ///        == 'other_package' => '(../../packages/other_package/lib/${match[3]}',
+  ///       _ => '',
+  ///      };
+  ///    });
+  ///    if (newPath.isEmpty) {
+  ///      return null; // return false;
+  ///    }
+  ///    return newPath;
+  ///  };
   /// ```
+  ///
+  /// ret: false or String?
   static LogPathFn? logPathFn;
 
   static Future<R> logRun<R>(Future<R> Function() body,
@@ -186,57 +188,71 @@ abstract class Log {
     zone ??= Zone.current;
     var start = '';
     var end = '';
-    var lable = '';
-    final zoneLable = zone[zonePrintLable];
-    if (zoneLable is String && zoneLable.isNotEmpty) {
-      lable = '$zoneLable | ';
+    var label = '';
+    final zoneLabel = zone[zonePrintLabel];
+    if (zoneLabel is String && zoneLabel.isNotEmpty) {
+      label = '$zoneLabel | ';
     }
     var path = '', name = '';
+    var rawName = '';
     if (kDartIsWeb) {
       position += 1;
     }
-    if (showTag) {
-      final st = StackTrace.current.toString();
-      final sp = LineSplitter.split(st);
-      var count = -1;
-      for (var item in sp) {
-        count++;
-        if (count == position) {
-          final spl = item.split(reg);
-          if (spl.length >= 3) {
-            String nameList;
-            if (kDartIsWeb) {
-              nameList = spl.last;
-              final head = spl[0].replaceFirst('packages/', 'package:');
-              path = logPathFn?.call('($head:${spl[1]})') ?? path;
-            } else {
-              nameList = spl[1];
-              path = logPathFn?.call(spl.last) ?? path;
-            }
-            final splitted = nameList.split('.');
-            name = splitted
-                .sublist(
-                    splitted.length <= 1 ? 0 : 1, math.min(2, splitted.length))
-                .join('.');
 
-            var padLength = functionLength - lable.length;
-            padLength = padLength.maxThan(0);
-            if (name.length > padLength) {
-              final max = (padLength - 3).maxThan(0);
-              name = '${name.substring(0, max)}...';
-            } else {
-              name = name.padRight(padLength);
-            }
-          }
-          break;
-        }
+    final st = StackTrace.current.toString();
+    final sp = LineSplitter.split(st);
+    List<String>? itemData;
+    var count = -1;
+    for (var item in sp) {
+      count++;
+      if (count == position) {
+        itemData = item.split(reg);
+        break;
       }
+    }
+    dynamic data;
+
+    if (itemData case [String first, String second, ..., String last]) {
+      String nameList;
+      if (kDartIsWeb) {
+        nameList = last;
+        final head = first.replaceFirst('packages/', 'package:');
+        data = logPathFn?.call('($head:$second)');
+      } else {
+        nameList = second;
+        data = logPathFn?.call(last);
+      }
+
+      final splitted = nameList.split('.');
+      rawName = name = splitted
+          .sublist(splitted.length <= 1 ? 0 : 1, math.min(2, splitted.length))
+          .join('.');
+
+      var padLength = functionLength - label.length;
+      padLength = padLength.maxThan(0);
+      if (name.length > padLength) {
+        final max = (padLength - 3).maxThan(0);
+        name = '${name.substring(0, max)}...';
+      } else {
+        name = name.padRight(padLength);
+      }
+    } else {
+      data = logPathFn?.call('');
+    }
+
+    switch (data) {
+      case String newPath:
+        path = newPath;
+      case bool result:
+        if (!result) {
+          return true;
+        }
     }
 
     if (!showTag) {
-      start = '$start$lable';
+      start = '$start$label';
     } else {
-      start = '$start$lable$name|';
+      start = '$start$label$name|';
     }
 
     var color = '';
@@ -247,50 +263,59 @@ abstract class Log {
       start = '$color$start';
       end = '\x1B[0m';
     }
+
     if (showPath) {
       if (debugMode) {
-        end = '$end $path';
+        if (path.isNotEmpty) {
+          end = '$end==> $path';
+        }
       } else if (path.isNotEmpty) {
         var pathRemoved = path.replaceAll(')', '');
-        end = '$end $pathRemoved:1)';
+        end = '$end==> $pathRemoved:1)';
       }
     }
 
-    List<String> splits;
-    if (message is Iterable) {
-      var s =
-          message.expand((e) => '$e'.split('\n').where((e) => e.isNotEmpty));
-      if (split) {
-        s = s.expand((e) => splitString(e, lines: lines));
-      }
-      splits = s.toList();
-    } else {
-      var s = '$message'.split('\n').where((e) => e.isNotEmpty);
-      if (split) {
-        s = s.expand((e) => splitString(e, lines: lines));
-      }
-      splits = s.toList();
+    var splitLines = switch (message) {
+      String message => message.split('\n'),
+      Iterable message => message.expand((e) => switch (e) {
+            String s => s.split('\n'),
+            var s => [s.toString()],
+          }),
+      var message => [message.toString()],
+    };
+
+    if (split) {
+      splitLines = splitLines.expand((e) => splitString(e, lines: lines));
     }
-    var limitLength = splits.length - 1;
-    if (lines > 0) {
-      limitLength = math.min(lines, limitLength);
+
+    final it = splitLines.iterator;
+
+    var index = 0;
+    String? lastLine;
+    while (it.moveNext()) {
+      index += 1;
+      final currentLine = lastLine;
+      lastLine = it.current;
+      if (lines <= 0 || lines > 0 && lines >= index) {
+        if (currentLine != null) zone.print('$color$currentLine');
+        continue;
+      }
+      break;
     }
-    for (var i = 0; i < splits.length; i++) {
-      if (i < limitLength) {
-        zone.print('$color${splits[i]}');
+
+    if (lastLine != null) {
+      if (index == 1) {
+        zone.print('$start$lastLine $end');
+      } else if (path.isNotEmpty) {
+        zone.print('$color$lastLine');
+        zone.print('$start$end');
+      } else if (showTag) {
+        zone.print('$color$lastLine ==> $label$rawName$end');
       } else {
-        var data = splits[i];
-        if (data.contains(_reg)) {
-          if (!debugMode) {
-            data = data.replaceAll(')', '');
-            data = '$data:1)';
-          }
-          data = '$data\n';
-        }
-        zone.print('$start$data$end');
-        break;
+        zone.print('$color$lastLine$start$end');
       }
     }
+
     return true;
   }
 

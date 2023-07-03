@@ -261,7 +261,7 @@ void _nullOnErrorHandler(Object error, StackTrace stackTrace) {
   Zone.current.handleUncaughtError(error, stackTrace);
 }
 
-class StreamSubscriptionUnit<T> extends StreamSubscription<T> {
+class StreamSubscriptionUnit<T> implements StreamSubscription<T> {
   StreamSubscriptionUnit(
       StreamLazyMixin<T> source, void Function(T event)? onData,
       {Function? onError, void Function()? onDone, bool? cancelOnError})
