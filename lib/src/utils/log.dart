@@ -243,10 +243,8 @@ abstract class Log {
     switch (data) {
       case String newPath:
         path = newPath;
-      case bool result:
-        if (!result) {
-          return true;
-        }
+      case false:
+        return true;
     }
 
     if (!showTag) {
