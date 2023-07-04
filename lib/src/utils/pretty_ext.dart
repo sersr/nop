@@ -32,21 +32,17 @@ extension LogMapPrettyExt on Map {
 }
 
 void _logPretty(StringBuffer buffer, dynamic value, int space, int level) {
-  if (value is Map) {
-    if (value.isNotEmpty) {
+  switch (value) {
+    case Map value when value.isNotEmpty:
       value.logPretty(buffer: buffer, space: space, level: level, isTop: false);
-      return;
-    }
-  } else if (value is List) {
-    if (value.isNotEmpty) {
+    case List value when value.isNotEmpty:
       value.logPretty(buffer: buffer, space: space, level: level, isTop: false);
-      return;
-    }
+    default:
+      buffer.write(value);
   }
-  buffer.write(value);
 }
 
-extension LogListPrettyExt on List {
+extension LogListPrettyExt on Iterable {
   String logPretty(
       {StringBuffer? buffer, int space = 2, int level = 0, bool isTop = true}) {
     buffer ??= StringBuffer();
