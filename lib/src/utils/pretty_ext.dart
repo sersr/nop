@@ -1,3 +1,7 @@
+abstract interface class LogPretty {
+  (dynamic, int level) logPretty(int level);
+}
+
 extension LogMapPrettyExt on Map {
   String logPretty(
       {StringBuffer? buffer, int space = 2, int level = 0, bool isTop = true}) {
@@ -37,6 +41,9 @@ void _logPretty(StringBuffer buffer, dynamic value, int space, int level) {
       value.logPretty(buffer: buffer, space: space, level: level, isTop: false);
     case List value when value.isNotEmpty:
       value.logPretty(buffer: buffer, space: space, level: level, isTop: false);
+    case LogPretty value:
+      final (data, newLevel) = value.logPretty(level);
+      _logPretty(buffer, data, space, newLevel);
     default:
       buffer.write(value);
   }
