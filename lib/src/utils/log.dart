@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:characters/characters.dart';
+import 'package:nop/utils.dart';
 
 import 'max_min.dart';
 
@@ -13,14 +14,55 @@ const kDartIsWeb = identical(0, 0.0);
 const bool profileMode =
     bool.fromEnvironment('dart.vm.profile', defaultValue: false);
 const bool debugMode = !releaseMode && !profileMode;
-const _colors = ['\x1B[39m', '\x1B[33m', '\x1B[31m'];
+
+enum LogColor {
+  black('30'),
+  red('31'),
+  green('32'),
+  orange('33'),
+  blue('34'),
+  magenta('35'),
+  cyan('36'),
+  grey('37'),
+  info('39'); // default
+
+  static LogColor get error => red;
+  static LogColor get warn => orange;
+
+  final String code;
+  const LogColor(this.code);
+}
+
+enum LogBgColor {
+  black('40'),
+  red('41'),
+  green('42'),
+  orange('43'),
+  blue('44'),
+  magenta('45'),
+  cyan('46'),
+  grey('47'),
+  original('49'), // default
+
+  darkGrey('100'),
+  lightRed('101'),
+  lightGreen('102'),
+  yellow('103'),
+  lightBlue('104'),
+  lightPurple('105'),
+  blueGreen('106'),
+  white('107');
+
+  final String code;
+  const LogBgColor(this.code);
+}
 
 typedef LogPathFn = dynamic Function(String path);
 
 abstract class Log {
-  static const int info = 0;
-  static const int warn = 1;
-  static const int error = 2;
+  static const int info = 9;
+  static const int warn = 3;
+  static const int error = 1;
   static int level = 0;
   static int functionLength = 18;
   static final zonePrintLabel = Object();
@@ -40,7 +82,7 @@ abstract class Log {
   /// ret: false or String?
   static LogPathFn? logPathFn;
 
-  static Future<R> logRun<R>(Future<R> Function() body,
+  static R logRun<R>(R Function() body,
       {bool canPrint = true, Map<Object, Object>? zoneValues}) {
     var lastPrint = '';
     var count = 1;
@@ -79,9 +121,10 @@ abstract class Log {
     Zone? zone,
     bool split = true,
     bool showTag = true,
+    LogBgColor? bgColor,
   }) {
     return _log(
-      Log.info,
+      LogColor.info,
       info,
       showPath,
       onlyDebug,
@@ -90,6 +133,7 @@ abstract class Log {
       position: ++position,
       split: split,
       showTag: showTag,
+      bgColor: bgColor,
     );
   }
 
@@ -102,9 +146,10 @@ abstract class Log {
     Zone? zone,
     bool split = true,
     bool showTag = true,
+    LogBgColor? bgColor,
   }) {
     return _log(
-      Log.warn,
+      LogColor.warn,
       warn,
       showPath,
       onlyDebug,
@@ -113,6 +158,7 @@ abstract class Log {
       position: ++position,
       split: split,
       showTag: showTag,
+      bgColor: bgColor,
     );
   }
 
@@ -125,9 +171,10 @@ abstract class Log {
     Zone? zone,
     bool split = true,
     bool showTag = true,
+    LogBgColor? bgColor,
   }) {
     return _log(
-      Log.error,
+      LogColor.error,
       error,
       showPath,
       onlyDebug,
@@ -136,11 +183,12 @@ abstract class Log {
       position: ++position,
       split: split,
       showTag: showTag,
+      bgColor: bgColor,
     );
   }
 
   static bool log(
-    int lv,
+    LogColor? color,
     Object? message, {
     bool showPath = true,
     bool onlyDebug = true,
@@ -149,9 +197,11 @@ abstract class Log {
     bool split = true,
     bool showTag = true,
     Zone? zone,
+    LogBgColor? bgColor,
   }) {
+    color ??= LogColor.info;
     return _log(
-      lv,
+      color,
       message,
       showPath,
       onlyDebug,
@@ -160,13 +210,14 @@ abstract class Log {
       position: ++position,
       split: split,
       showTag: showTag,
+      bgColor: bgColor,
     );
   }
 
   static final reg = RegExp(r' +');
 
   static bool _log(
-    int lv,
+    LogColor terminalColor,
     Object? message,
     bool showPath,
     bool onlyDebug,
@@ -175,6 +226,7 @@ abstract class Log {
     int position = 1,
     bool split = true,
     bool showTag = true,
+    LogBgColor? bgColor,
   }) {
     if (!debugMode && onlyDebug) return true;
     position++;
@@ -186,48 +238,49 @@ abstract class Log {
     if (zoneLabel is String && zoneLabel.isNotEmpty) {
       label = '$zoneLabel | ';
     }
-    var path = '', name = '';
-    var rawName = '';
+    var path = '', name = '', fullFnName = '';
+
     if (kDartIsWeb) {
       position += 1;
     }
 
-    final st = StackTrace.current.toString();
-    final sp = LineSplitter.split(st);
-    List<String>? itemData;
-    var count = -1;
-    for (var item in sp) {
-      count++;
-      if (count == position) {
-        itemData = item.split(reg);
-        break;
-      }
-    }
+    final sp = LineSplitter.split(StackTrace.current.toString());
+
+    final currentPath = sp.elementAtOrNull(position)?.split(reg);
+
     dynamic data;
 
-    if (itemData case [String first, String second, ..., String last]) {
-      String nameList;
+    if (currentPath case [String first, String second, ..., String last]) {
       if (kDartIsWeb) {
-        nameList = last;
-        final head = first.replaceFirst('packages/', 'package:');
-        data = logPathFn?.call('($head:$second)');
+        assert(() {
+          fullFnName = last;
+          final head = first.replaceFirst('packages/', 'package:');
+          data = logPathFn?.call('($head:$second)');
+
+          return true;
+        }());
+        if (!debugMode) {
+          assert(data == null);
+          data = logPathFn?.call('') ?? false;
+        }
       } else {
-        nameList = second;
+        fullFnName = second;
+        if (!debugMode) {
+          last = last.replaceFirst(RegExp('\\)\$'), ':1)');
+        }
         data = logPathFn?.call(last);
       }
 
-      final splitted = nameList.split('.');
-      rawName = name = splitted
-          .sublist(splitted.length <= 1 ? 0 : 1, math.min(2, splitted.length))
-          .join('.');
-
-      var padLength = functionLength - label.length;
-      padLength = padLength.maxThan(0);
-      if (name.length > padLength) {
-        final max = (padLength - 3).maxThan(0);
-        name = '${name.substring(0, max)}...';
-      } else {
-        name = name.padRight(padLength);
+      if (fullFnName.isNotEmpty) {
+        name = fullFnName.split('.').last;
+        var padLength = functionLength - label.length;
+        padLength = padLength.maxThan(0);
+        if (name.length > padLength) {
+          final end = (padLength - 3).maxThan(0);
+          name = '${name.substring(0, end)}...';
+        } else {
+          name = name.padRight(padLength);
+        }
       }
     } else {
       data = logPathFn?.call('');
@@ -240,68 +293,61 @@ abstract class Log {
         return true;
     }
 
-    if (!showTag) {
+    if (!showTag || name.isEmpty) {
       start = '$start$label';
     } else {
       start = '$start$label$name|';
     }
 
     var color = '';
+
     if (kDartIsWeb || !Platform.isIOS) {
-      if (lv <= 2) {
-        color = _colors[lv];
-      }
+      color = switch (bgColor) {
+        LogBgColor color => '\x1B[${terminalColor.code};${color.code}m',
+        _ => '\x1B[${terminalColor.code}m',
+      };
       start = '$color$start';
       end = '\x1B[0m';
     }
 
-    if (showPath) {
-      if (debugMode) {
-        if (path.isNotEmpty) {
-          end = '$end $path';
-        }
-      } else if (path.isNotEmpty) {
-        var pathRemoved = path.replaceAll(')', '');
-        end = '$end $pathRemoved:1)';
-      }
+    if (showPath && path.isNotEmpty) {
+      end = '$end $path';
     }
 
-    var splitLines = switch (message) {
-      String message => message.split('\n'),
-      Iterable message => message.expand((e) => switch (e) {
-            String s => s.split('\n'),
-            var s => [s.toString()],
-          }),
+    final messageLines = switch (message) {
+      String message when split => splitString(message, lines: lines),
+      String message => LineSplitter.split(message),
+      Iterable message when split =>
+        message.expand((e) => splitString(e, lines: lines)),
+      Iterable<Object?> message => message,
+      Object message when split => splitString(message, lines: lines),
       var message => [message.toString()],
     };
 
-    if (split) {
-      splitLines = splitLines.expand((e) => splitString(e, lines: lines));
-    }
-
-    final it = splitLines.iterator;
+    final it = messageLines.iterator;
 
     var index = 0;
-    String? lastLine;
+    Object? lastLine;
+    final limited = lines > 0;
     while (it.moveNext()) {
       index += 1;
       final currentLine = lastLine;
       lastLine = it.current;
-      if (lines <= 0 || lines > 0 && lines >= index) {
-        if (currentLine != null) zone.print('$color$currentLine');
-        continue;
+      if (limited && index >= lines) {
+        break;
       }
-      break;
+      if (currentLine == null) continue;
+      zone.print('$color$currentLine');
     }
 
     if (lastLine != null) {
       if (index == 1) {
-        zone.print('$start$lastLine $end');
+        zone.print('$start$lastLine$end');
       } else if (path.isNotEmpty) {
         zone.print('$color$lastLine');
-        zone.print('$color==> $label$rawName $end');
+        if (!kDartIsWeb) zone.print('$color==> $label$fullFnName$end');
       } else if (showTag) {
-        zone.print('$color$lastLine ==> $label$rawName$end');
+        zone.print('$color$lastLine ==> $label$fullFnName$end');
       } else {
         zone.print('$color$lastLine$end');
       }
@@ -345,24 +391,29 @@ abstract class Log {
       final sub = subC.toString();
 
       if (sub.length <= halfLength) {
-        yield sub;
+        yield* LineSplitter.split(sub);
         i = end;
       } else {
         final buffer = StringBuffer();
-        var hasLenght = maxLength;
+        var hasLength = maxLength;
         for (var item in subC) {
-          if (hasLenght <= 0) break;
+          if (hasLength <= 0) break;
+          if (item == '\n') {
+            i += 1;
+            break;
+          }
+
           buffer.write(item);
           if (item.length > 1) {
-            hasLenght -= 2;
+            hasLength -= 2;
             continue;
           }
           final itemCode = item.codeUnits.first;
           if (itemCode >= 19968 && itemCode <= 40869) {
-            hasLenght -= 2;
+            hasLength -= 2;
             continue;
           }
-          hasLenght -= 1;
+          hasLength -= 1;
         }
         final source = buffer.toString();
         i += source.characters.length;
