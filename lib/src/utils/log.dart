@@ -27,20 +27,13 @@ abstract class Log {
 
   /// Example:
   /// ```dart
-  ///   final reg = RegExp(r'\((package:)(.+?)/(.*)');
+  ///  final reg = RegExp(r'\((package:)(.+?)/(.*)');
   ///  Log.logPathFn = (path) {
-  ///    final newPath = path.replaceFirstMapped(reg, (match) {
-  ///      final package = match[2];
-  ///      return switch (package) {
-  ///        == 'demo' => '(./lib/${match[3]}',
-  ///        == 'other_package' => '(../../packages/other_package/lib/${match[3]}',
-  ///       _ => '',
-  ///      };
-  ///    });
-  ///    if (newPath.isEmpty) {
-  ///      return null; // return false;
-  ///    }
-  ///    return newPath;
+  ///    final match = reg.firstMatch(path);
+  ///    return switch (match?[2]) {
+  ///      == 'hide other package' => false,
+  ///      _ => path,
+  ///    };
   ///  };
   /// ```
   ///
@@ -265,11 +258,11 @@ abstract class Log {
     if (showPath) {
       if (debugMode) {
         if (path.isNotEmpty) {
-          end = '$end==> $path';
+          end = '$end $path';
         }
       } else if (path.isNotEmpty) {
         var pathRemoved = path.replaceAll(')', '');
-        end = '$end==> $pathRemoved:1)';
+        end = '$end $pathRemoved:1)';
       }
     }
 
@@ -308,7 +301,7 @@ abstract class Log {
         zone.print('$color$lastLine');
         zone.print('$start$end');
       } else if (showTag) {
-        zone.print('$color$lastLine ==> $label$rawName$end');
+        zone.print('$color$lastLine $label$rawName$end');
       } else {
         zone.print('$color$lastLine$start$end');
       }
@@ -337,8 +330,6 @@ abstract class Log {
   static Iterable<String> splitString(Object source, {int lines = 0}) sync* {
     final sourceStr = source.toString();
     if (_reg.hasMatch(sourceStr) || sourceStr.isEmpty) {
-      // final first = _reg.firstMatch(_s);
-      // print('first: ${first?[0]}');
       yield sourceStr;
       return;
     }
