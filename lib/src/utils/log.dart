@@ -299,11 +299,11 @@ abstract class Log {
         zone.print('$start$lastLine $end');
       } else if (path.isNotEmpty) {
         zone.print('$color$lastLine');
-        zone.print('$start$end');
+        zone.print('$color==> $label$rawName $end');
       } else if (showTag) {
-        zone.print('$color$lastLine $label$rawName$end');
+        zone.print('$color$lastLine ==> $label$rawName$end');
       } else {
-        zone.print('$color$lastLine$start$end');
+        zone.print('$color$lastLine$end');
       }
     }
 
