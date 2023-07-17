@@ -345,7 +345,7 @@ abstract class Log {
         zone.print('$start$lastLine$end');
       } else if (path.isNotEmpty) {
         zone.print('$color$lastLine');
-        if (!kDartIsWeb) zone.print('$color==> $label$fullFnName$end');
+        zone.print('$color==> $label$fullFnName$end');
       } else if (showTag) {
         zone.print('$color$lastLine ==> $label$fullFnName$end');
       } else {
