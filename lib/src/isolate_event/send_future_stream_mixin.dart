@@ -32,6 +32,11 @@ mixin SenderAddDataMixin<T> on Sender {
   }
 
   @override
+  void addError(Object error, StackTrace stackTrace) {
+    completer.completeError(error, stackTrace);
+  }
+
+  @override
   void cancel() {
     if (!completer.isCompleted) completer.complete();
   }

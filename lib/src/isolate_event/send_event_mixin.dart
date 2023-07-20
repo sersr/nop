@@ -46,10 +46,9 @@ mixin SendEventMixin implements SendEvent, Messager {
   bool add(message) {
     if (message is ReceiveMessage) {
       final messageId = message.uniqueKey;
-      final data = message.data;
       final messager = _messageCaches[messageId];
       if (messager != null) {
-        messager.addData(data);
+        SenderOnReceivedMixin.onSenderReceived(messager, message);
         return true;
       }
     }
@@ -70,15 +69,15 @@ mixin SendEventMixin implements SendEvent, Messager {
   final _futureLists = <ListKey, SenderCompleter>{};
 
   @override
-  Future<T?> sendMessage<T>(dynamic type, dynamic args,
+  Future<T> sendMessage<T>(dynamic type, dynamic args,
       {String serverName = 'default'}) {
     final key = ListKey([type, args, T, serverName]);
 
     if (_futureLists.containsKey(key)) {
-      return _futureLists[key]!.future as Future<T?>;
+      return _futureLists[key]!.future as Future<T>;
     }
 
-    final sender = SenderCompleter<T?>(_remove);
+    final sender = SenderCompleter<T>(_remove);
     _futureLists[key] = sender;
     sender.messageKey = key;
     _send(type, args, sender, serverName);

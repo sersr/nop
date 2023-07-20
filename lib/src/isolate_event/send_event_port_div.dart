@@ -32,15 +32,15 @@ mixin SendEventFutureMixin on SendEvent implements Messager {
   final _futureLists = <ListKey, SenderCompleterPrivateHandle>{};
 
   @override
-  Future<T?> sendMessage<T>(type, args, {String serverName = 'default'}) {
+  Future<T> sendMessage<T>(type, args, {String serverName = 'default'}) {
     final key = ListKey([type, args, T, serverName]);
 
     if (_futureLists.containsKey(key)) {
-      return _futureLists[key]!.future as Future<T?>;
+      return _futureLists[key]!.future as Future<T>;
     }
 
     final sender =
-        SenderCompleterPrivateHandle<T?>(_sendEventRemove, _sendEventResolve);
+        SenderCompleterPrivateHandle<T>(_sendEventRemove, _sendEventResolve);
     sender.messageKey = key;
     _futureLists[key] = sender;
 
@@ -70,13 +70,13 @@ mixin SendEventPortStreamMixin on SendEvent implements Messager {
     _streamLists.remove(sender.messageKey);
   }
 
-  dynamic _sendEventResolve(dynamic data) {
-    if (data is ReceiveMessage) {
-      if (data.result == Result.failed) assert(Log.w('failed'));
-      return data.data;
-    }
-    return data;
-  }
+  // dynamic _sendEventResolve(dynamic data) {
+  //   if (data is ReceiveMessage) {
+  //     if (data.result == Result.failed) assert(Log.w('failed'));
+  //     return data.data;
+  //   }
+  //   return data;
+  // }
 
   final _streamLists = <Object, SenderStreamPrivateHandle>{};
 
@@ -96,8 +96,8 @@ mixin SendEventPortStreamMixin on SendEvent implements Messager {
       return _streamLists[key]!.stream as Stream<T>;
     }
 
-    final sender = SenderStreamPrivateHandle<T>(
-        _sendEventRemove, _sendKey, _sendEventResolve, shouldCached);
+    final sender =
+        SenderStreamPrivateHandle<T>(_sendEventRemove, _sendKey, shouldCached);
     sender.messageKey = key;
     _streamLists[key] = sender;
 

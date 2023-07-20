@@ -8,7 +8,7 @@ import './message.dart';
 import 'sender_transfer_data.dart';
 
 abstract class Messager {
-  Future<T?> sendMessage<T>(dynamic type, dynamic args,
+  Future<T> sendMessage<T>(dynamic type, dynamic args,
       {String serverName = 'default'});
   Stream<T> sendMessageStream<T>(dynamic type, dynamic args,
       {bool unique = false,
@@ -203,8 +203,8 @@ mixin Resolve on ListenMixin {
           try {
             final result = item.value.elementAt(type.index)(message.args);
             receipt(result, message);
-          } catch (e) {
-            receipt(null, message, e);
+          } catch (e, stacktrace) {
+            receipt((e, stacktrace), message, true);
           }
           return true;
         }
@@ -250,7 +250,7 @@ mixin Resolve on ListenMixin {
   }
 
   @protected
-  void receipt(o, SendMessage m, [errorMessage]) {
+  void receipt(o, SendMessage m, [bool isError = false]) {
     var sendHandle = m.sendHandle;
     // 使用独立端口，如果可用
     if (m.uniqueKey is SendHandle) sendHandle = m.uniqueKey as SendHandle;
@@ -259,11 +259,14 @@ mixin Resolve on ListenMixin {
       futureAutoSend(o, sendHandle, m);
     } else if (o is Stream) {
       streamSend(o, sendHandle, m);
-    } else {
+    } else if (!isError) {
       objectSend(o, sendHandle, m);
     }
 
-    if (errorMessage != null) onError(m, errorMessage);
+    if (isError) {
+      sendError(o, sendHandle, m);
+      onError(m, (o as (Object, StackTrace)).$1);
+    }
   }
 
   void onError(message, error) {}
@@ -276,13 +279,12 @@ mixin Resolve on ListenMixin {
   Future<void> futureAutoSend(Future data, SendHandle sp, SendMessage m) {
     return data.then((value) async {
       await encode(value);
-      return ReceiveMessage(data: value, uniqueKey: m.uniqueKey);
+      sp.send(ReceiveMessage(data: value, uniqueKey: m.uniqueKey));
     }, onError: (e, s) {
       Log.e('future receive error: $e\n$s',
           lines: 4, position: 1, onlyDebug: false);
-      return ReceiveMessage(
-          data: null, uniqueKey: m.uniqueKey, result: Result.failed);
-    }).then(sp.send);
+      sendError((e, s), sp, m);
+    });
   }
 
   void streamSend(Stream data, SendHandle sp, SendMessage m) {
@@ -311,9 +313,7 @@ mixin Resolve on ListenMixin {
     }, onError: (e, s) {
       _listener.remove(key);
       Log.w('$e\n$s', onlyDebug: false);
-      EventQueue.push(key, () {
-        sp.send(ReceiveMessage(data: StreamState.error, uniqueKey: key));
-      });
+      EventQueue.push(key, () => sendError((e, s), sp, m));
     }, cancelOnError: true);
     subOwner.sub = sub;
     _listener[key] = subOwner;
@@ -323,11 +323,16 @@ mixin Resolve on ListenMixin {
   void objectSend(Object? data, SendHandle sp, SendMessage m) {
     encode(data).then(
         (value) => sp.send(ReceiveMessage(data: data, uniqueKey: m.uniqueKey)),
-        onError: (e) {
-      sp.send(ReceiveMessage(
-          data: null, uniqueKey: m.uniqueKey, result: Result.failed));
+        onError: (e, s) {
+      sendError((e, s), sp, m);
       Log.e('error: $e');
     });
+  }
+
+  void sendError(error, SendHandle sp, SendMessage m) {
+    assert(error is (Object, StackTrace));
+    sp.send(ReceiveMessage(
+        data: error, uniqueKey: m.uniqueKey, result: Result.failed));
   }
 }
 

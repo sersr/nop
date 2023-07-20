@@ -11,19 +11,17 @@ mixin SenderPrivateHandle implements Sender {
 }
 
 class SenderCompleterPrivateHandle<T>
-    with Sender, SenderPrivateHandle, SenderAddDataMixin<T> {
+    with
+        Sender,
+        SenderOnReceivedMixin,
+        SenderPrivateHandle,
+        SenderAddDataMixin<T> {
   SenderCompleterPrivateHandle(this.onRemove, this.onResolve) {
-    receiveHandle.first.then(addData);
+    receiveHandle.first.then(onReceived);
   }
   @override
   final OnReomveCallback onRemove;
   final OnResolveHandle onResolve;
-
-  @override
-  void addData(dynamic data) {
-    dynamic messasgeData = onResolve(data);
-    super.addData(messasgeData);
-  }
 
   @override
   void close() {
@@ -35,25 +33,18 @@ class SenderCompleterPrivateHandle<T>
 class SenderStreamPrivateHandle<T>
     with
         Sender,
+        SenderOnReceivedMixin,
         SenderPrivateHandle,
         StreamLazyMixin<T>,
         ListenerControllerStreamMixin<T> {
-  SenderStreamPrivateHandle(
-      this.onRemove, this.onSend, this.onResolve, this.shouldCache) {
-    receiveHandle.listen(addData);
+  SenderStreamPrivateHandle(this.onRemove, this.onSend, this.shouldCache) {
+    receiveHandle.listen(onReceived);
   }
 
   @override
   final OnReomveCallback onRemove;
-  final OnResolveHandle onResolve;
   @override
   final KeyControllerCallback onSend;
   @override
   final bool shouldCache;
-
-  @override
-  void addData(dynamic data) {
-    dynamic messageData = onResolve(data);
-    super.addData(messageData);
-  }
 }
