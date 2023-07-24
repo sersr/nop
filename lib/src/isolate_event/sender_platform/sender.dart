@@ -1,4 +1,5 @@
 import '../message.dart';
+import '../sender_private_handle.dart';
 
 export 'send_handle.dart';
 export 'sender_io.dart' if (dart.library.html) 'sender_web.dart';
@@ -16,6 +17,9 @@ mixin SenderOnReceivedMixin on Sender {
         case var data:
           sender.addData(data);
       }
+    } else {
+      assert(sender is SenderStreamPrivateHandle);
+      sender.addData(message);
     }
   }
 }

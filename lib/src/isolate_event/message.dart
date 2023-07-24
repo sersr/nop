@@ -22,10 +22,7 @@ class KeyController implements ServerName {
   }
 }
 
-enum StreamState {
-  done,
-  error,
-}
+enum StreamState { done }
 
 class SendMessage implements ServerName {
   SendMessage(this.type, this.args, this.uniqueKey, this.serverName);

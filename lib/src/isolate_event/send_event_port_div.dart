@@ -21,13 +21,13 @@ mixin SendEventFutureMixin on SendEvent implements Messager {
     _futureLists.remove(sender.messageKey);
   }
 
-  dynamic _sendEventResolve(dynamic data) {
-    if (data is ReceiveMessage) {
-      if (data.result == Result.failed) assert(Log.w('failed'));
-      return data.data;
-    }
-    return data;
-  }
+  // dynamic _sendEventResolve(dynamic data) {
+  //   if (data is ReceiveMessage) {
+  //     if (data.result == Result.failed) assert(Log.w('failed'));
+  //     return data.data;
+  //   }
+  //   return data;
+  // }
 
   final _futureLists = <ListKey, SenderCompleterPrivateHandle>{};
 
@@ -39,8 +39,7 @@ mixin SendEventFutureMixin on SendEvent implements Messager {
       return _futureLists[key]!.future as Future<T>;
     }
 
-    final sender =
-        SenderCompleterPrivateHandle<T>(_sendEventRemove, _sendEventResolve);
+    final sender = SenderCompleterPrivateHandle<T>(_sendEventRemove);
     sender.messageKey = key;
     _futureLists[key] = sender;
 

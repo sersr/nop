@@ -132,7 +132,7 @@ void main() async {
       listen3.resume();
       expect(lcontroller.activeUnits.length, 1);
 
-      lcontroller.cancel();
+      lcontroller.close();
 
       expect(lcontroller.activeUnits.length, 0);
 

@@ -128,9 +128,7 @@ mixin StreamLazyMixin<T> {
     _disposed = false;
   }
 
-  void close() => cancel();
-
-  void cancel() {
+  void close() {
     if (_canceled) return;
     _canceled = true;
     if (!hasListener) {
@@ -139,10 +137,10 @@ mixin StreamLazyMixin<T> {
     }
     final active = List.of(activeUnits, growable: false);
     final paused = List.of(pausedUnits, growable: false);
-    final ditry = List.of(dirtyUnits, growable: false);
+    final dirty = List.of(dirtyUnits, growable: false);
     active.forEach(_close);
     paused.forEach(_close);
-    ditry.forEach(_close);
+    dirty.forEach(_close);
   }
 
   static void _close<T>(StreamSubscriptionUnit<T> item) {

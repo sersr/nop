@@ -16,12 +16,11 @@ class SenderCompleterPrivateHandle<T>
         SenderOnReceivedMixin,
         SenderPrivateHandle,
         SenderAddDataMixin<T> {
-  SenderCompleterPrivateHandle(this.onRemove, this.onResolve) {
+  SenderCompleterPrivateHandle(this.onRemove) {
     receiveHandle.first.then(onReceived);
   }
   @override
   final OnReomveCallback onRemove;
-  final OnResolveHandle onResolve;
 
   @override
   void close() {

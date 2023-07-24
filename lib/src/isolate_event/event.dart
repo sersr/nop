@@ -289,7 +289,7 @@ mixin Resolve on ListenMixin {
 
   void streamSend(Stream data, SendHandle sp, SendMessage m) {
     final key = m.uniqueKey;
-    final hasPrivateHandle = key is SendHandle;
+    final isPrivateHandle = key is SendHandle;
     final subOwner = StreamSubscriptionOwner();
     StreamSubscription sub;
     sub = data.listen((data) {
@@ -297,12 +297,12 @@ mixin Resolve on ListenMixin {
       final encodeData = encode(data);
       EventQueue.push(key, () {
         if (!subOwner.isCancel) {
-          if (hasPrivateHandle) {
-            return encodeData.whenComplete(() => sp.send(data));
+          var retValue = data;
+          if (isPrivateHandle) {
           } else {
-            final value = ReceiveMessage(data: data, uniqueKey: key);
-            return encodeData.whenComplete(() => sp.send(value));
+            retValue = ReceiveMessage(data: data, uniqueKey: key);
           }
+          return encodeData.whenComplete(() => sp.send(retValue));
         }
       });
     }, onDone: () {
@@ -312,7 +312,6 @@ mixin Resolve on ListenMixin {
       });
     }, onError: (e, s) {
       _listener.remove(key);
-      Log.w('$e\n$s', onlyDebug: false);
       EventQueue.push(key, () => sendError((e, s), sp, m));
     }, cancelOnError: true);
     subOwner.sub = sub;

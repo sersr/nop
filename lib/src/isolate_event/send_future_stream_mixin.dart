@@ -8,37 +8,44 @@ import '../event_dispatch/event_dispatch.dart';
 import 'message.dart';
 import 'sender_transfer_data.dart';
 
-typedef OnResolveHandle = dynamic Function(dynamic data);
 typedef OnReomveCallback<T> = void Function(Sender sender);
 
 mixin SenderAddDataMixin<T> on Sender {
-  late final completer = Completer<T>()..future.whenComplete(close);
+  late final completer = Completer<T>();
   OnReomveCallback<T> get onRemove;
 
   @override
   void addData(dynamic data) {
     dynamic messageData = data;
     if (messageData is TransferType<T>) {
-      messageData.decode().then((value) {
-        if (!completer.isCompleted) completer.complete(value);
-      });
+      messageData.decode().then(_complete);
       return;
     } else if (T == dynamic && messageData is TransferableTypedData) {
       messageData = messageData.materialize();
     }
-    if (!completer.isCompleted) {
-      completer.complete(messageData);
-    }
+
+    _complete(messageData);
   }
 
   @override
   void addError(Object error, StackTrace stackTrace) {
     completer.completeError(error, stackTrace);
+    close();
   }
 
   @override
   void cancel() {
-    if (!completer.isCompleted) completer.complete();
+    if (!completer.isCompleted) {
+      completer.completeError('cancel');
+      close();
+    }
+  }
+
+  void _complete([data]) {
+    if (!completer.isCompleted) {
+      completer.complete(data);
+      close();
+    }
   }
 
   Future<T> get future => completer.future;
@@ -57,13 +64,11 @@ mixin ListenerControllerStreamMixin<T> on Sender, StreamLazyMixin<T> {
   void addData(dynamic data) {
     dynamic messageData = data;
     if (data is StreamState) {
-      _quque.addEventTask(() {
-        if (data == StreamState.done) {
-          cancel();
-        } else if (data == StreamState.error) {
-          cancel();
-        }
-      });
+      if (_quque.actived) {
+        _quque.addEventTask(close);
+      } else {
+        close();
+      }
       return;
     }
     if (messageData is TransferType<T>) {
@@ -77,6 +82,11 @@ mixin ListenerControllerStreamMixin<T> on Sender, StreamLazyMixin<T> {
       messageData = messageData.materialize();
     }
     add(messageData);
+  }
+
+  @override
+  void cancel() {
+    close();
   }
 
   @override
