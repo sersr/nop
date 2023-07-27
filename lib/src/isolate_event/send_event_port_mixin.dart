@@ -88,6 +88,7 @@ mixin SendEventPortMixin on SendEvent implements Messager {
   void _send(dynamic type, dynamic args, Sender sender, String serverName) {
     final id = sender.identityKey;
     sender.serverName = serverName;
+    sender.nullOnError = nullOnError;
 
     send(SendMessage(type, args, id, serverName));
   }

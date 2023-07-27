@@ -18,6 +18,9 @@ import 'sender_single.dart';
 /// ```
 mixin SendEventMixin implements SendEvent, Messager {
   @override
+  bool get nullOnError => true;
+
+  @override
   SendHandleOwner? getSendHandleOwner(String? serverName) => null;
 
   @override
@@ -116,6 +119,7 @@ mixin SendEventMixin implements SendEvent, Messager {
     assert(!_messageCaches.containsKey(id));
     sender.serverName = serverName;
     _messageCaches[id] = sender;
+    sender.nullOnError = nullOnError;
 
     send(SendMessage(type, args, id, serverName));
   }

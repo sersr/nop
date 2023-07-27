@@ -79,6 +79,9 @@ abstract class Log {
   ///  };
   /// ```
   ///
+  /// ```dart
+  /// Log.lopPathFn = (path) => path;
+  /// ```
   /// ret: false or String?
   static LogPathFn? logPathFn;
 

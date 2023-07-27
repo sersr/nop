@@ -7,4 +7,6 @@ mixin Sender {
   late final Object identityKey = Capability();
   Object? messageKey;
   String? serverName;
+
+  bool nullOnError = false;
 }

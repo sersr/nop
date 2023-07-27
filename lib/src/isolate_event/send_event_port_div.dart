@@ -45,6 +45,7 @@ mixin SendEventFutureMixin on SendEvent implements Messager {
 
     final id = sender.identityKey;
     sender.serverName = serverName;
+    sender.nullOnError = nullOnError;
 
     send(SendMessage(type, args, id, serverName));
 
@@ -102,6 +103,7 @@ mixin SendEventPortStreamMixin on SendEvent implements Messager {
 
     final id = sender.identityKey;
     sender.serverName = serverName;
+    sender.nullOnError = nullOnError;
 
     send(SendMessage(type, args, id, serverName));
     return sender.streamAsync;

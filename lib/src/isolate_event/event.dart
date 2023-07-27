@@ -42,6 +42,8 @@ abstract class SendEvent {
   @protected
   void send(message);
 
+  bool get nullOnError;
+
   @mustCallSuper
   @protected
   SendHandleOwner? getSendHandleOwner(String? serverName) => null;

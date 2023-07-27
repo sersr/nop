@@ -29,8 +29,12 @@ mixin SenderAddDataMixin<T> on Sender {
 
   @override
   void addError(Object error, StackTrace stackTrace) {
-    completer.completeError(error, stackTrace);
-    close();
+    if (nullOnError && null is T) {
+      _complete();
+    } else {
+      completer.completeError(error, stackTrace);
+      close();
+    }
   }
 
   @override
@@ -82,6 +86,15 @@ mixin ListenerControllerStreamMixin<T> on Sender, StreamLazyMixin<T> {
       messageData = messageData.materialize();
     }
     add(messageData);
+  }
+
+  @override
+  void addError(Object error, StackTrace stackTrace) {
+    if (nullOnError && null is T) {
+      close();
+    } else {
+      super.addError(error, stackTrace);
+    }
   }
 
   @override
