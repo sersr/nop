@@ -318,13 +318,12 @@ abstract class Log {
     }
 
     final messageLines = switch (message) {
-      String message when split => splitString(message, lines: lines),
-      String message => LineSplitter.split(message),
-      Iterable message when split =>
-        message.expand((e) => splitString(e, lines: lines)),
+      String message when split => splitString(message),
+      String m => LineSplitter.split(m),
+      Iterable message when split => message.expand((e) => splitString(e)),
       Iterable<Object?> message => message,
-      Object message when split => splitString(message, lines: lines),
-      var message => [message.toString()],
+      Object message when split => splitString(message),
+      var message => LineSplitter.split(message.toString()),
     };
 
     final it = messageLines.iterator;
@@ -336,7 +335,7 @@ abstract class Log {
       index += 1;
       final currentLine = lastLine;
       lastLine = it.current;
-      if (limited && index >= lines) {
+      if (limited && index > lines) {
         break;
       }
       if (currentLine == null) continue;
@@ -376,17 +375,16 @@ abstract class Log {
 
   static final _reg = RegExp(r'\((package|dart):.*\)');
 
-  static Iterable<String> splitString(Object source, {int lines = 0}) sync* {
+  static Iterable<String> splitString(Object source) sync* {
     final sourceStr = source.toString();
     if (_reg.hasMatch(sourceStr) || sourceStr.isEmpty) {
-      yield sourceStr;
+      yield* LineSplitter.split(sourceStr);
       return;
     }
     final rawSource = sourceStr.characters;
     final length = rawSource.length;
     const maxLength = 110;
     const halfLength = maxLength / 2;
-    var lineCount = 0;
 
     for (var i = 0; i < length;) {
       final end = math.min(i + maxLength, length);
@@ -421,10 +419,6 @@ abstract class Log {
         final source = buffer.toString();
         i += source.characters.length;
         yield source;
-      }
-      lineCount++;
-      if (lines > 0 && lineCount >= lines) {
-        break;
       }
     }
   }
