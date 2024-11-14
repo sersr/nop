@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:isolate';
 
 import 'package:meta/meta.dart';
 
@@ -20,8 +19,8 @@ mixin SenderAddDataMixin<T> on Sender {
     if (messageData is TransferType<T>) {
       messageData.decode().then(_complete);
       return;
-    } else if (T == dynamic && messageData is TransferableTypedData) {
-      messageData = messageData.materialize();
+    } else if (T == dynamic) {
+      messageData = materialize(messageData);
     }
 
     _complete(messageData);
@@ -82,8 +81,8 @@ mixin ListenerControllerStreamMixin<T> on Sender, StreamLazyMixin<T> {
         }),
       );
       return;
-    } else if (T == dynamic && messageData is TransferableTypedData) {
-      messageData = messageData.materialize();
+    } else if (T == dynamic) {
+      messageData = materialize(messageData);
     }
     add(messageData);
   }

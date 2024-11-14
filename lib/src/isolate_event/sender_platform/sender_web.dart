@@ -1,3 +1,5 @@
+import '../../../isolate_event.dart';
+
 mixin Sender {
   void addData(data);
   void addError(Object error, StackTrace stackTrace);
@@ -8,3 +10,9 @@ mixin Sender {
 
   bool nullOnError = false;
 }
+
+dynamic materialize(dynamic data) {
+  return data;
+}
+
+typedef IsolateRemoteServer = LocalRemoteServer;

@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:isolate';
+
 
 import 'event.dart';
 import '../../event_queue.dart';
@@ -67,41 +67,6 @@ class Runner {
 typedef RemoteEntryPoint<T> = FutureOr<Runner> Function(
     ServerConfigurations<T> args);
 
-class _IsolateCreaterWithArgs<T> {
-  final ServerConfigurations<T> args;
-  final RemoteEntryPoint<T> entryPoint;
-  _IsolateCreaterWithArgs(this.entryPoint, this.args);
-  FutureOr<void> apply() => entryPoint(args).then((runner) => runner.run());
-}
-
-/// 创建一个[Isolate]
-class IsolateRemoteServer<T> extends RemoteServer {
-  IsolateRemoteServer(
-      {required this.entryPoint, required this.args, this.debugName});
-  final ServerConfigurations<T> args;
-  final RemoteEntryPoint<T> entryPoint;
-  final String? debugName;
-
-  Isolate? _isolate;
-  @override
-  Future<void> create() async {
-    _isolate ??= await Isolate.spawn(
-        _nopIsolate, _IsolateCreaterWithArgs(entryPoint, args),
-        debugName: debugName);
-  }
-
-  @override
-  bool get killed => _isolate == null;
-  @override
-  void kill() {
-    if (_isolate != null) {
-      _isolate!.kill(priority: Isolate.immediate);
-      _isolate = null;
-    }
-  }
-
-  static void _nopIsolate(_IsolateCreaterWithArgs args) => args.apply();
-}
 
 /// 通常由其他[RemoteServer]代理时
 /// 为其提供一个句柄
