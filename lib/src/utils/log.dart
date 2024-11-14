@@ -8,7 +8,7 @@ import 'package:nop/utils.dart';
 
 import 'max_min.dart';
 
-import 's_io.dart' if (dart.library.js_util) '_web.dart';
+import 's_io.dart' if (dart.library.js_util) 's_web.dart';
 
 const bool releaseMode =
     bool.fromEnvironment('dart.vm.product', defaultValue: false);
