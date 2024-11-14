@@ -1,12 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
+
 import 'dart:math' as math;
 
 import 'package:characters/characters.dart';
 import 'package:nop/utils.dart';
 
 import 'max_min.dart';
+
+import '_io.dart' if (dart.library.html) '_web.dart';
 
 const bool releaseMode =
     bool.fromEnvironment('dart.vm.product', defaultValue: false);
@@ -304,7 +306,7 @@ abstract class Log {
 
     var color = '';
 
-    if (kDartIsWeb || !Platform.isIOS) {
+    if (kDartIsWeb || !isIOS) {
       color = switch (bgColor) {
         LogBgColor color => '\x1B[${terminalColor.code};${color.code}m',
         _ => '\x1B[${terminalColor.code}m',
