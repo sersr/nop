@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'send_handle_io.dart' if (dart.library.html) 'send_handle_web.dart';
+import 'send_handle_io.dart' if (dart.library.js_util) 'send_handle_web.dart';
 
 abstract class SendHandle {
   void send(message);
