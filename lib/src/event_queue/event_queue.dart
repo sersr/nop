@@ -255,7 +255,6 @@ class EventQueue {
     while (_tasks.length >= channels || _taskPool.isEmpty) {
       if (_tasks.isEmpty) break;
       await _tasks.any;
-      await idleWait;
     }
   }
 
@@ -266,7 +265,6 @@ class EventQueue {
       while (_tasks.isNotEmpty) {
         if (_taskPool.isNotEmpty) break;
         await _tasks.any;
-        await idleWait;
       }
     }
   }
@@ -306,7 +304,6 @@ class EventQueue {
         }
       }
       await _runImpl(task);
-      await idleWait;
     }
     _active = false;
     _closeStream();
@@ -508,13 +505,10 @@ class _TaskIgnore {
   bool ignore;
 }
 
-@Deprecated('use idleWait')
-Future<void> get releaseUI => idleWait;
-
 /// 进入 事件循环 等待事件调度
 /// flutter engine 根据任务类型是否立即执行事件回调
 /// 后续的任务会在恰当的时机运行，比如帧渲染优先等
-Future<void> get idleWait => release(Duration.zero);
+Future<void>? get idleWait => null;
 Future<void> release(Duration time) => Future.delayed(time);
 
 extension EventsPush<T> on FutureOr<T> Function() {
