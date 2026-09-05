@@ -1,12 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
-
 import 'dart:math' as math;
 
 import 'package:characters/characters.dart';
-import 'package:nop/utils.dart';
-
-import 'max_min.dart';
 
 import 's_io.dart' if (dart.library.js_util) 's_web.dart';
 
@@ -16,6 +12,38 @@ const kDartIsWeb = identical(0, 0.0);
 const bool profileMode =
     bool.fromEnvironment('dart.vm.profile', defaultValue: false);
 const bool debugMode = !releaseMode && !profileMode;
+
+typedef LogFn = void Function(Object? message, LogLevel minLevel,
+    LogLevel level, LogColor color, String path);
+
+final class LogLevel {
+  final int level;
+  const LogLevel(this.level);
+  static const debug = LogLevel(100);
+  static const info = LogLevel(200);
+  static const warn = LogLevel(300);
+  static const error = LogLevel(400);
+  static const ignore = LogLevel(500);
+
+  String get name {
+    return switch (this) {
+      < debug => 'none',
+      < info => 'debug',
+      < warn => 'info',
+      < error => 'warn',
+      < ignore => 'error',
+      _ => 'ignore',
+    };
+  }
+
+  operator <(LogLevel other) {
+    return level < other.level;
+  }
+
+  operator >=(LogLevel other) {
+    return level >= other.level;
+  }
+}
 
 enum LogColor {
   black('30'),
@@ -30,6 +58,21 @@ enum LogColor {
 
   static LogColor get error => red;
   static LogColor get warn => orange;
+
+  String get logName {
+    return switch (this) {
+      LogColor.info => "[info]",
+      LogColor.orange => '[warn]',
+      LogColor.red => '[error]',
+      LogColor.black ||
+      LogColor.green ||
+      LogColor.blue ||
+      LogColor.magenta ||
+      LogColor.cyan ||
+      LogColor.grey =>
+        '[$name]',
+    };
+  }
 
   final String code;
   const LogColor(this.code);
@@ -61,18 +104,93 @@ enum LogBgColor {
 
 typedef LogPathFn = dynamic Function(String path);
 
-abstract class Log {
-  static const int info = 9;
-  static const int warn = 3;
-  static const int error = 1;
-  static int level = 0;
+extension Log on Logger {
+  static final defaultLogger = Logger();
   static int functionLength = 18;
-  static final zonePrintLabel = Object();
 
+  static bool d(
+    Object? info, {
+    int position = 0,
+    Zone? zone,
+    LogBgColor? bgColor,
+  }) {
+    return defaultLogger._log(
+      LogColor.info,
+      info,
+      zone,
+      level: LogLevel.debug,
+      position: ++position,
+      bgColor: bgColor,
+    );
+  }
+
+  static bool i(
+    Object? info, {
+    int position = 0,
+    Zone? zone,
+    LogBgColor? bgColor,
+  }) {
+    return defaultLogger._log(
+      LogColor.info,
+      info,
+      zone,
+      level: LogLevel.info,
+      position: ++position,
+      bgColor: bgColor,
+    );
+  }
+
+  static bool w(
+    Object? warn, {
+    int position = 0,
+    Zone? zone,
+    LogBgColor? bgColor,
+  }) {
+    return defaultLogger._log(
+      LogColor.warn,
+      warn,
+      zone,
+      level: LogLevel.warn,
+      position: ++position,
+      bgColor: bgColor,
+    );
+  }
+
+  static bool e(
+    Object? error, {
+    int position = 0,
+    Zone? zone,
+    LogBgColor? bgColor,
+  }) {
+    return defaultLogger._log(
+      LogColor.error,
+      error,
+      zone,
+      level: LogLevel.error,
+      position: ++position,
+      bgColor: bgColor,
+    );
+  }
+}
+
+final class Logger {
+  static int get functionLength => Log.functionLength;
+  LogLevel minLevel = LogLevel.debug;
+
+  Logger({this.label});
+  final String? label;
+
+  bool canLog(LogLevel log) {
+    return minLevel.level <= log.level;
+  }
+
+  /// {@template Logger.logPathFn}
   /// Example:
   /// ```dart
+  ///   final log = Logger();
+  ///   ...
   ///  final reg = RegExp(r'\((package:)(.+?)/(.*)');
-  ///  Log.logPathFn = (path) {
+  ///  log.logPathFn = (path) {
   ///    final match = reg.firstMatch(path);
   ///    return switch (match?[2]) {
   ///      == 'hide other package' => false,
@@ -85,122 +203,86 @@ abstract class Log {
   /// Log.lopPathFn = (path) => path;
   /// ```
   /// ret: false or String?
-  static LogPathFn? logPathFn;
+  /// {@endtemplate}
+  LogPathFn? logPathFn;
 
-  static R logRun<R>(R Function() body,
-      {bool canPrint = true, Map<Object, Object>? zoneValues}) {
-    var lastPrint = '';
-    var count = 1;
+  LogFn? logFn;
 
-    return runZoned(body,
-        zoneSpecification: ZoneSpecification(print: (s, d, z, line) {
-      if (!canPrint) return;
-      if (!debugMode) {
-        d.print(z, line);
-        return;
-      }
-      if (lastPrint != line) {
-        d.print(z, line);
-        lastPrint = line;
-        count = 1;
-        return;
-      } else {
-        if (line.length > 24) {
-          count++;
-          final func = line.substring(0, 24);
-          final message = line.substring(24);
-          d.print(z, '$func$count>$message');
-          return;
-        }
-        d.print(z, line);
-      }
-    }), zoneValues: zoneValues);
-  }
+  bool showPath = true;
+  int lines = 0;
+  bool split = true;
+  bool showTag = true;
 
-  static bool i(
+  bool d(
     Object? info, {
-    bool showPath = true,
-    bool onlyDebug = true,
     int lines = 0,
     int position = 0,
     Zone? zone,
-    bool split = true,
-    bool showTag = true,
     LogBgColor? bgColor,
   }) {
     return _log(
       LogColor.info,
       info,
-      showPath,
-      onlyDebug,
       zone,
-      lines: lines,
+      level: LogLevel.debug,
       position: ++position,
-      split: split,
-      showTag: showTag,
       bgColor: bgColor,
     );
   }
 
-  static bool w(
-    Object? warn, {
-    bool showPath = true,
-    bool onlyDebug = true,
-    int lines = 0,
+  bool i(
+    Object? info, {
     int position = 0,
     Zone? zone,
-    bool split = true,
-    bool showTag = true,
+    LogBgColor? bgColor,
+  }) {
+    return _log(
+      LogColor.info,
+      info,
+      zone,
+      level: LogLevel.info,
+      position: ++position,
+      bgColor: bgColor,
+    );
+  }
+
+  bool w(
+    Object? warn, {
+    int position = 0,
+    Zone? zone,
     LogBgColor? bgColor,
   }) {
     return _log(
       LogColor.warn,
       warn,
-      showPath,
-      onlyDebug,
       zone,
-      lines: lines,
+      level: LogLevel.warn,
       position: ++position,
-      split: split,
-      showTag: showTag,
       bgColor: bgColor,
     );
   }
 
-  static bool e(
+  bool e(
     Object? error, {
-    bool showPath = true,
-    bool onlyDebug = true,
-    int lines = 0,
     int position = 0,
     Zone? zone,
-    bool split = true,
-    bool showTag = true,
     LogBgColor? bgColor,
   }) {
     return _log(
       LogColor.error,
       error,
-      showPath,
-      onlyDebug,
       zone,
-      lines: lines,
+      level: LogLevel.error,
       position: ++position,
-      split: split,
-      showTag: showTag,
       bgColor: bgColor,
     );
   }
 
-  static bool log(
+  bool log(
     LogColor? color,
     Object? message, {
-    bool showPath = true,
-    bool onlyDebug = true,
-    int lines = 0,
+    required LogLevel level,
     int position = 0,
-    bool split = true,
-    bool showTag = true,
     Zone? zone,
     LogBgColor? bgColor,
   }) {
@@ -208,42 +290,37 @@ abstract class Log {
     return _log(
       color,
       message,
-      showPath,
-      onlyDebug,
       zone,
-      lines: lines,
+      level: level,
       position: ++position,
-      split: split,
-      showTag: showTag,
       bgColor: bgColor,
     );
   }
 
   static final reg = RegExp(r' +');
 
-  static bool _log(
+  bool _log(
     LogColor terminalColor,
     Object? message,
-    bool showPath,
-    bool onlyDebug,
     Zone? zone, {
-    int lines = 0,
+    required LogLevel level,
     int position = 1,
-    bool split = true,
-    bool showTag = true,
     LogBgColor? bgColor,
   }) {
-    if (!debugMode && onlyDebug) return true;
+    if (!canLog(level)) return true;
+
     position++;
     zone ??= Zone.current;
     var start = '';
     var end = '';
+
     var label = '';
-    final zoneLabel = zone[zonePrintLabel];
-    if (zoneLabel is String && zoneLabel.isNotEmpty) {
-      label = '$zoneLabel | ';
+    if (this.label case var l? when l.isNotEmpty) {
+      label = '[$l] ';
     }
-    var path = '', name = '', fullFnName = '';
+    var path = '',
+        //  name = '',
+        fullFnName = '';
 
     if (kDartIsWeb) {
       position += 1;
@@ -276,17 +353,17 @@ abstract class Log {
         data = logPathFn?.call(last);
       }
 
-      if (fullFnName.isNotEmpty) {
-        name = fullFnName.split('.').last;
-        var padLength = functionLength - label.length;
-        padLength = padLength.maxThan(0);
-        if (name.length > padLength) {
-          final end = (padLength - 3).maxThan(0);
-          name = '${name.substring(0, end)}...';
-        } else {
-          name = name.padRight(padLength);
-        }
-      }
+      // if (fullFnName.isNotEmpty) {
+      //   name = fullFnName.split('.').last;
+      //   var padLength = functionLength - label.length;
+      //   padLength = padLength.maxThan(0);
+      //   if (name.length > padLength) {
+      //     final end = (padLength - 3).maxThan(0);
+      //     name = '${name.substring(0, end)}...';
+      //   } else {
+      //     name = name.padRight(padLength);
+      //   }
+      // }
     } else {
       data = logPathFn?.call('');
     }
@@ -298,12 +375,6 @@ abstract class Log {
         return true;
     }
 
-    if (!showTag || name.isEmpty) {
-      start = '$start$label';
-    } else {
-      start = '$start$label$name|';
-    }
-
     var color = '';
 
     if (kDartIsWeb || !isIOS) {
@@ -311,12 +382,18 @@ abstract class Log {
         LogBgColor color => '\x1B[${terminalColor.code};${color.code}m',
         _ => '\x1B[${terminalColor.code}m',
       };
-      start = '$color$start';
+      start = '$start$color';
       end = '\x1B[0m';
     }
 
     if (showPath && path.isNotEmpty) {
       end = '$end $path';
+    }
+
+    if (logFn case var fn?) {
+      try {
+        fn(message, minLevel, level, terminalColor, path);
+      } catch (_) {}
     }
 
     final messageLines = switch (message) {
@@ -333,27 +410,45 @@ abstract class Log {
     var index = 0;
     Object? lastLine;
     final limited = lines > 0;
+    var printmore = false;
     while (it.moveNext()) {
       index += 1;
-      final currentLine = lastLine;
-      lastLine = it.current;
       if (limited && index > lines) {
+        printmore = true;
         break;
       }
+      final currentLine = lastLine;
+      lastLine = it.current;
       if (currentLine == null) continue;
       zone.print('$color$currentLine');
     }
 
+    if (showTag) {
+      final time = DateTime.now();
+      final timeLabel = '${time.year}.${time.month.toString().padLeft(2, '0')}'
+          '.${time.day.toString().padLeft(2, '0')} '
+          '${time.hour.toString().padLeft(2, '0')}:'
+          '${time.minute.toString().padLeft(2, '0')}:'
+          '${time.second.toString().padLeft(2, '0')}';
+
+      start = '$timeLabel$color ';
+    }
+
     if (lastLine != null) {
-      if (index == 1) {
-        zone.print('$start$lastLine$end');
-      } else if (path.isNotEmpty) {
+      if (path.isNotEmpty) {
         zone.print('$color$lastLine');
-        zone.print('$color==> $label$fullFnName$end');
+        if (printmore) zone.print('...');
+        if (showTag) {
+          zone.print('$start| $label$fullFnName$end');
+        } else {
+          zone.print('$color$label$fullFnName$end');
+        }
       } else if (showTag) {
-        zone.print('$color$lastLine ==> $label$fullFnName$end');
+        zone.print('$color$lastLine');
+        if (printmore) zone.print('...');
+        zone.print('$start| $label$fullFnName$end');
       } else {
-        zone.print('$color$lastLine$end');
+        zone.print('$label$lastLine$end');
       }
     }
 

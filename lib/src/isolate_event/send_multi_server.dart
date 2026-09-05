@@ -76,8 +76,7 @@ mixin SendMultiServerMixin on SendEvent, ListenMixin {
         allServerProtocols[sendHandleName.name] = sendHandleName.protocols;
         sendHandleOwners[sendHandleName.name] = sendHandleOwner;
         Log.i(
-            'init: protocol status: $equal | ${sendHandleName.name} | $protocols',
-            onlyDebug: false);
+            'init: protocol status: $equal | ${sendHandleName.name} | $protocols');
         return true;
       }
     }
@@ -91,8 +90,7 @@ mixin SendMultiServerMixin on SendEvent, ListenMixin {
       return sendHandleOwner;
     }
     if (!_allProtocols.containsKey(serverName)) {
-      Log.e('sendHandleOwner == null | remoteName: $serverName',
-          onlyDebug: false);
+      assert(Log.e('sendHandleOwner == null | remoteName: $serverName'));
     }
     return super.getSendHandleOwner(serverName);
   }
@@ -126,8 +124,8 @@ mixin SendMultiServerMixin on SendEvent, ListenMixin {
     super.onResumeListen();
     if (!_allProtocols.keys.every(sendHandleOwners.containsKey)) {
       Log.e(
-          'sendHandleOwners: ${sendHandleOwners.keys} > isolatNames: ${_allProtocols.keys}',
-          onlyDebug: false);
+        'sendHandleOwners: ${sendHandleOwners.keys} > isolatNames: ${_allProtocols.keys}',
+      );
     }
     onResume();
     notifyState(true);
@@ -156,7 +154,7 @@ mixin SendMultiServerMixin on SendEvent, ListenMixin {
         return;
       }
       if (message == _closeKey) {
-        Log.e('close root receiveHandle: done', onlyDebug: false);
+        Log.e('close root receiveHandle: done');
         receiveHandle.close();
         return;
       }
@@ -178,7 +176,7 @@ mixin SendMultiServerMixin on SendEvent, ListenMixin {
       //     () => Log.w('如果一直卡在这里，有可能是远程`throw`没有被捕获，建议使用`runZonedGuarded`',
       //         onlyDebug: false));
       final result = await rcHandle.first;
-      Log.i('close: $result', onlyDebug: false);
+      Log.i('close: $result');
       // timer.cancel();
     });
   }
@@ -210,7 +208,7 @@ mixin SendMultiServerMixin on SendEvent, ListenMixin {
 
     if (servers.isNotEmpty) {
       final timer = Timer(const Duration(milliseconds: 10000), () {
-        Log.w('timeout: 10 seconds', onlyDebug: false);
+        Log.w('timeout: 10 seconds');
       });
 
       await for (var message in rcHandle) {
@@ -218,7 +216,7 @@ mixin SendMultiServerMixin on SendEvent, ListenMixin {
           servers.remove(message.name);
           final removedIsolate = remoteServers.remove(message.name);
           if (removedIsolate != null) {
-            Log.w('close server: ${message.name}', onlyDebug: false);
+            Log.w('close server: ${message.name}');
             removedIsolate.kill();
           }
 
@@ -232,7 +230,7 @@ mixin SendMultiServerMixin on SendEvent, ListenMixin {
       }
     }
 
-    Log.w('close: success', onlyDebug: false);
+    Log.w('close: success');
   }
 
   static const _closeKey = 'close_root_receive_handle';
@@ -263,8 +261,7 @@ mixin ResolveMultiRecievedMixin on SendEvent, Resolve {
       success = prots.every(localProts.contains);
     }
     if (success) {
-      Log.i('$runtimeType: received ${sendHandleName.name} | $localProts',
-          onlyDebug: false);
+      Log.i('$runtimeType: received ${sendHandleName.name} | $localProts');
     } else {
       Log.w('not matched, ${sendHandleName.name}, $prots, $localProts');
     }
@@ -286,7 +283,7 @@ mixin ResolveMultiRecievedMixin on SendEvent, Resolve {
   SendHandleOwner? getSendHandleOwner(serverName) {
     final sendHandleOwner = receivedSendHandleOwners[serverName];
     if (sendHandleOwner != null) return sendHandleOwner;
-    Log.e('remoteName: $serverName == null', onlyDebug: false);
+    Log.e('remoteName: $serverName == null');
     return super.getSendHandleOwner(serverName);
   }
 

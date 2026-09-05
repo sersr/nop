@@ -80,8 +80,8 @@ mixin ListenMixin {
 
   late ReceiveHandle _rcHandle;
   FutureOr<void> run() async {
-    return runZonedGuarded(() => Log.logRun(_initState), (error, stack) {
-      Log.e('error: $error\n$stack', lines: 4, position: 2, onlyDebug: false);
+    return runZonedGuarded(_initState, (error, stack) {
+      Log.e('error: $error\n$stack');
     });
   }
 
@@ -112,7 +112,7 @@ mixin ListenMixin {
   bool listen(message) {
     if (message is SendHandleName) {
       if (!onListenReceivedSendHandle(message)) {
-        Log.e('can not resolve ${message.name} sendHandle', onlyDebug: false);
+        Log.e('can not resolve ${message.name} sendHandle');
       }
       return true;
     }
@@ -236,7 +236,7 @@ mixin Resolve on ListenMixin {
             sub?.resume();
             break;
           default:
-            Log.w('error $key', onlyDebug: false);
+            Log.w('error $key');
         }
         return true;
       } else if (key.key is SendHandle &&
@@ -283,8 +283,7 @@ mixin Resolve on ListenMixin {
       await encode(value);
       sp.send(ReceiveMessage(data: value, uniqueKey: m.uniqueKey));
     }, onError: (e, s) {
-      Log.e('future receive error: $e\n$s',
-          lines: 4, position: 1, onlyDebug: false);
+      Log.e('future receive error: $e\n$s');
       sendError((e, s), sp, m);
     });
   }

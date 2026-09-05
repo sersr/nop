@@ -4,3 +4,4 @@ export 'src/utils/log.dart';
 export 'src/utils/max_min.dart';
 export 'src/utils/option.dart';
 export 'src/utils/pretty_ext.dart';
+export 'src/utils/log_file.dart';

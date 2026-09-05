@@ -508,7 +508,7 @@ class _TaskIgnore {
 /// 进入 事件循环 等待事件调度
 /// flutter engine 根据任务类型是否立即执行事件回调
 /// 后续的任务会在恰当的时机运行，比如帧渲染优先等
-Future<void>? get idleWait => null;
+const Future<void>? idleWait = null;
 Future<void> release(Duration time) => Future.delayed(time);
 
 extension EventsPush<T> on FutureOr<T> Function() {

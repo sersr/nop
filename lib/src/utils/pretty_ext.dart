@@ -1,3 +1,13 @@
+import 'package:nop/nop.dart';
+
+extension LogPrettyExt on Object? {
+  String get logPretter {
+    final buffer = StringBuffer();
+    logPrettyDefault(buffer, this, 2, 0);
+    return buffer.toString();
+  }
+}
+
 abstract interface class LogPretty {
   (dynamic, int level) logPretty(int level);
 }
@@ -23,7 +33,7 @@ extension LogMapPrettyExt on Map {
         buffer.write(',\n$childSpace$key: ');
       }
 
-      _logPretty(buffer, value, space, childLevel);
+      logPrettyDefault(buffer, value, space, childLevel);
     }
 
     buffer.write('\n${' ' * space * level}}');
@@ -35,7 +45,7 @@ extension LogMapPrettyExt on Map {
   }
 }
 
-void _logPretty(StringBuffer buffer, dynamic value, int space, int level) {
+void logPrettyDefault(StringBuffer buffer, dynamic value, int space, int level) {
   switch (value) {
     case Map value when value.isNotEmpty:
       value.logPretty(buffer: buffer, space: space, level: level, isTop: false);
@@ -43,7 +53,7 @@ void _logPretty(StringBuffer buffer, dynamic value, int space, int level) {
       value.logPretty(buffer: buffer, space: space, level: level, isTop: false);
     case LogPretty value:
       final (data, newLevel) = value.logPretty(level);
-      _logPretty(buffer, data, space, newLevel);
+      logPrettyDefault(buffer, data, space, newLevel);
     default:
       buffer.write(value);
   }
@@ -69,7 +79,7 @@ extension LogListPrettyExt on Iterable {
         buffer.write(',\n$childSpace');
       }
 
-      _logPretty(buffer, value, space, childLevel);
+      logPrettyDefault(buffer, value, space, childLevel);
     }
 
     buffer.write('\n${' ' * space * level}]');

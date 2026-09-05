@@ -35,6 +35,6 @@ mixin SendCacheMixin on SendEvent {
       return;
     }
 
-    Log.e('error: $message', onlyDebug: false);
+    Log.e('error: $message');
   }
 }
