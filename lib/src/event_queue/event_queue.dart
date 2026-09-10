@@ -33,23 +33,27 @@ class EventQueue {
   static final _tempQueues = <Object, EventQueue>{};
   static int delayRemove = 5000;
 
-  static S runTask<S>(key, S Function(EventQueue event) run,
-      {int channels = 1}) {
+  static S runTask<S>(
+    key,
+    S Function(EventQueue event) run, {
+    int channels = 1,
+  }) {
     final listKey = _TaskKeys(key, channels);
 
-    final queue =
-        _tempQueues.putIfAbsent(listKey, () => EventQueue(channels: channels));
-    return run(queue)
-      ..whenComplete(() {
-        queue.runner.whenComplete(() {
-          Timer(Duration(milliseconds: delayRemove.maxThan(0)), () {
-            final cache = _tempQueues[listKey];
-            if (!queue.actived && cache == queue) {
-              _tempQueues.remove(listKey);
-            }
-          });
+    final queue = _tempQueues.putIfAbsent(
+      listKey,
+      () => EventQueue(channels: channels),
+    );
+    return run(queue)..whenComplete(() {
+      queue.runner.whenComplete(() {
+        Timer(Duration(milliseconds: delayRemove.maxThan(0)), () {
+          final cache = _tempQueues[listKey];
+          if (!queue.actived && cache == queue) {
+            _tempQueues.remove(listKey);
+          }
         });
       });
+    });
   }
 
   /// 拥有相同的[key]在会一个队列中
@@ -64,8 +68,11 @@ class EventQueue {
   }
 
   static void push<T>(key, EventCallback<T> task, {int channels = 1}) {
-    return runTask(key, (event) => event.addEventTask(task),
-        channels: channels);
+    return runTask(
+      key,
+      (event) => event.addEventTask(task),
+      channels: channels,
+    );
   }
 
   static void pushOne<T>(key, EventCallback<T> task, {int channels = 1}) {
@@ -95,8 +102,11 @@ class EventQueue {
 
   bool get isLast => _taskPool.isEmpty;
 
-  Future<T> _addEventTask<T>(EventCallback<T> callback,
-      {bool onlyLastOne = false, Object? taskKey}) {
+  Future<T> _addEventTask<T>(
+    EventCallback<T> callback, {
+    bool onlyLastOne = false,
+    Object? taskKey,
+  }) {
     final task = TaskEntry<T>(
       queue: this,
       taskKey: taskKey,
@@ -135,8 +145,11 @@ class EventQueue {
     return _awaitTask<T>(callback, taskKey: taskKey);
   }
 
-  Future<T> _awaitTask<T>(EventCallback<T> callback,
-      {Object? taskKey, bool onlyLastOne = false}) {
+  Future<T> _awaitTask<T>(
+    EventCallback<T> callback, {
+    Object? taskKey,
+    bool onlyLastOne = false,
+  }) {
     if (doNotEnterQueue()) {
       final localTask = currentTask!;
       final completer = Completer<T>();
@@ -166,14 +179,17 @@ class EventQueue {
         }
       });
       // 安排一个傀儡任务进入队列
-      _addEventTask(() {
-        if (outer == null && !completer.isCompleted) {
-          run();
-          outer = false;
-        }
-        return completer.future;
-      }, taskKey: taskKey, onlyLastOne: onlyLastOne)
-          .then(onValue, onError: onError);
+      _addEventTask(
+        () {
+          if (outer == null && !completer.isCompleted) {
+            run();
+            outer = false;
+          }
+          return completer.future;
+        },
+        taskKey: taskKey,
+        onlyLastOne: onlyLastOne,
+      ).then(onValue, onError: onError);
 
       return completer.future;
     }
@@ -344,8 +360,8 @@ class TaskEntry<T> {
     this.taskKey,
     this.isOvserve = false,
     this.onlyLast = false,
-  })  : _eventQueue = queue,
-        _zone = Zone.current;
+  }) : _eventQueue = queue,
+       _zone = Zone.current;
   final Zone _zone;
   final bool isOvserve;
 
@@ -402,6 +418,7 @@ class TaskEntry<T> {
         assert(_innerCompleter == null);
         _innerCompleter ??= Completer<void>();
         callback().then(_completeAll, onError: _completeErrorAll);
+        // ignore: unawaited_return_in_try_block
         return _innerCompleter?.future;
       } catch (e, s) {
         _completedError(e, s);

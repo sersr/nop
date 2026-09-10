@@ -3,12 +3,6 @@ import 'package:nop/src/utils/pretty_ext.dart';
 
 void main() {
   test('log pretty', () {
-    final map = {
-      'hhlo': 11,
-      'sss': ['s.', 1, 23],
-      'map': {'1': 'ddd'}
-    };
-
     final longMap = {
       "\$hash": "3b6d152e",
       "\$name": "UserFullHash3b6d152e",
@@ -63,7 +57,7 @@ void main() {
           "registrationMonth": null,
           "phoneCountry": null,
           "nameChangeDate": null,
-          "photoChangeDate": null
+          "photoChangeDate": null,
         },
         "personalPhoto": null,
         "profilePhoto": {
@@ -94,7 +88,7 @@ void main() {
             128,
             101,
             28,
-            68
+            68,
           ],
           "date": 1732237246000,
           "sizes": [
@@ -104,7 +98,7 @@ void main() {
               "type": "a",
               "w": 160,
               "h": 160,
-              "size": 4948
+              "size": 4948,
             },
             {
               "\$hash": "75c78e60",
@@ -112,7 +106,7 @@ void main() {
               "type": "b",
               "w": 320,
               "h": 320,
-              "size": 12974
+              "size": 12974,
             },
             {
               "\$hash": "75c78e60",
@@ -120,7 +114,7 @@ void main() {
               "type": "c",
               "w": 640,
               "h": 640,
-              "size": 27707
+              "size": 27707,
             },
             {
               "\$hash": "e0b0bc2e",
@@ -260,9 +254,9 @@ void main() {
                 162,
                 138,
                 40,
-                17
-              ]
-            }
+                17,
+              ],
+            },
           ],
           "videoSizes": [
             {
@@ -273,7 +267,7 @@ void main() {
               "w": 160,
               "h": 160,
               "size": 43569,
-              "videoStartTs": null
+              "videoStartTs": null,
             },
             {
               "\$hash": "de33b094",
@@ -283,16 +277,16 @@ void main() {
               "w": 800,
               "h": 800,
               "size": 133409,
-              "videoStartTs": null
+              "videoStartTs": null,
             },
             {
               "\$hash": "f85c413c",
               "\$name": "VideoSizeEmojiMarkupHashf85c413c",
               "emojiId": 5377646788029196004,
-              "backgroundColors": [6207227, 2084587, 4585399, 2093529]
-            }
+              "backgroundColors": [6207227, 2084587, 4585399, 2093529],
+            },
           ],
-          "dcId": 5
+          "dcId": 5,
         },
         "fallbackPhoto": null,
         "notifySettings": {
@@ -304,25 +298,25 @@ void main() {
           "muteUntil": 0,
           "iosSound": {
             "\$hash": "97e8bebe",
-            "\$name": "NotificationSoundDefaultHash97e8bebe"
+            "\$name": "NotificationSoundDefaultHash97e8bebe",
           },
           "androidSound": {
             "\$hash": "830b9ae4",
             "\$name": "NotificationSoundLocalHash830b9ae4",
             "title": "default",
-            "data": "default"
+            "data": "default",
           },
           "otherSound": {
             "\$hash": "830b9ae4",
             "\$name": "NotificationSoundLocalHash830b9ae4",
             "title": "default",
-            "data": "default"
+            "data": "default",
           },
           "storiesMuted": null,
           "storiesHideSender": null,
           "storiesIosSound": null,
           "storiesAndroidSound": null,
-          "storiesOtherSound": null
+          "storiesOtherSound": null,
         },
         "botInfo": null,
         "pinnedMsgId": null,
@@ -354,7 +348,7 @@ void main() {
         "mainTab": null,
         "savedMusic": null,
         "note": null,
-        "botManagerId": null
+        "botManagerId": null,
       },
       "chats": [],
       "users": [
@@ -421,14 +415,14 @@ void main() {
               42,
               56,
               154,
-              76
+              76,
             ],
-            "dcId": 5
+            "dcId": 5,
           },
           "status": {
             "\$hash": "008c703f",
             "\$name": "UserStatusOfflineHash008c703f",
-            "wasOnline": 1788352163
+            "wasOnline": 1788352163,
           },
           "botInfoVersion": null,
           "restrictionReason": null,
@@ -441,9 +435,9 @@ void main() {
           "profileColor": null,
           "botActiveUsers": null,
           "botVerificationIcon": null,
-          "sendPaidMessagesStars": null
-        }
-      ]
+          "sendPaidMessagesStars": null,
+        },
+      ],
     };
     // ignore: avoid_print
     print(longMap.logPretty());

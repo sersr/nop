@@ -1,5 +1,6 @@
 import 'dart:async';
-import 'send_handle_io.dart' if (dart.library.js_util) 'send_handle_web.dart';
+import 'send_handle_io.dart'
+    if (dart.library.js_interop) 'send_handle_web.dart';
 
 abstract class SendHandle {
   void send(message);
@@ -14,18 +15,24 @@ abstract class SendHandle {
 ///
 /// 对应关系：
 /// [localSendHandle] 出自 <remote>的[ReceiveHandle]
-/// [remoteSendHandle] 出自 <local>的[RecieveHandle]
+/// [remoteSendHandle] 出自 <local>的[ReceiveHandle]
 class SendHandleOwner {
-  SendHandleOwner(
-      {required this.localSendHandle, required this.remoteSendHandle});
+  SendHandleOwner({
+    required this.localSendHandle,
+    required this.remoteSendHandle,
+  });
 
   final SendHandle localSendHandle;
   final SendHandle remoteSendHandle;
 }
 
 class SendHandleName {
-  SendHandleName(this.name, this.sendHandle,
-      {this.protocols, this.isToRemote = true});
+  SendHandleName(
+    this.name,
+    this.sendHandle, {
+    this.protocols,
+    this.isToRemote = true,
+  });
   final String name;
 
   /// true: 由local 发送给 remote

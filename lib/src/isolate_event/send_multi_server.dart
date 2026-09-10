@@ -132,13 +132,13 @@ mixin SendMultiServerMixin on SendEvent, ListenMixin {
   }
 
   @override
-  FutureOr<void> onListen(ReceiveHandle receiveHandle) async {
+  FutureOr<void> onListen(ReceiveHandle rcHandle) async {
     Completer<void>? completer;
 
     final allServerNames = List.of(remoteServers.keys);
     if (allServerNames.isNotEmpty) completer = Completer<void>();
 
-    receiveHandle.listen((message) {
+    rcHandle.listen((message) {
       if (add(message)) return;
       if (listen(message) || message is SendHandleName) {
         if (message is SendHandleName && !message.isToRemote) {
@@ -155,7 +155,7 @@ mixin SendMultiServerMixin on SendEvent, ListenMixin {
       }
       if (message == _closeKey) {
         Log.e('close root receiveHandle: done');
-        receiveHandle.close();
+        rcHandle.close();
         return;
       }
       assert(Log.e('error message: $message'));

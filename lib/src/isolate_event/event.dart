@@ -8,17 +8,26 @@ import './message.dart';
 import 'sender_transfer_data.dart';
 
 abstract class Messager {
-  Future<T> sendMessage<T>(dynamic type, dynamic args,
-      {String serverName = 'default'});
-  Stream<T> sendMessageStream<T>(dynamic type, dynamic args,
-      {bool unique = false,
-      bool cached = false,
-      String serverName = 'default'});
+  Future<T> sendMessage<T>(
+    dynamic type,
+    dynamic args, {
+    String serverName = 'default',
+  });
+  Stream<T> sendMessageStream<T>(
+    dynamic type,
+    dynamic args, {
+    bool unique = false,
+    bool cached = false,
+    String serverName = 'default',
+  });
 }
 
 extension SendMessageOption on Messager {
-  Future<Option<T>> sendOption<T>(dynamic type, dynamic args,
-      {String serverName = 'default'}) {
+  Future<Option<T>> sendOption<T>(
+    dynamic type,
+    dynamic args, {
+    String serverName = 'default',
+  }) {
     return sendMessage(type, args, serverName: serverName).then((value) {
       assert(value is Option<T> || value == null);
       if (value is Option<T>) {
@@ -31,7 +40,7 @@ extension SendMessageOption on Messager {
           return const None();
         }
       }
-    }, onError: (e) => const None());
+    }, onError: (e) => None<T>());
   }
 }
 
@@ -62,10 +71,7 @@ abstract class SendEvent {
 }
 
 class ServerConfigurations<T> {
-  ServerConfigurations({
-    required this.args,
-    required this.sendHandle,
-  });
+  ServerConfigurations({required this.args, required this.sendHandle});
   final T args;
   final SendHandle sendHandle;
 }
@@ -165,8 +171,14 @@ mixin Resolve on ListenMixin {
         prot.addAll(protocols.value);
       }
       for (var item in map.entries) {
-        remoteSendHandle!.send(SendHandleName(item.key, localSendHandle,
-            protocols: item.value.toList(), isToRemote: false));
+        remoteSendHandle!.send(
+          SendHandleName(
+            item.key,
+            localSendHandle,
+            protocols: item.value.toList(),
+            isToRemote: false,
+          ),
+        );
       }
     }
     super.onResumeListen();
@@ -242,8 +254,11 @@ mixin Resolve on ListenMixin {
       } else if (key.key is SendHandle &&
           identical(key.keyType, KeyType.closeServer)) {
         final sp = key.key;
-        onClose().whenComplete(() => sp
-            .send(SendHandleName('${key.serverName}', sp, isToRemote: false)));
+        onClose().whenComplete(
+          () => sp.send(
+            SendHandleName('${key.serverName}', sp, isToRemote: false),
+          ),
+        );
 
         return true;
       }
@@ -279,13 +294,16 @@ mixin Resolve on ListenMixin {
   }
 
   Future<void> futureAutoSend(Future data, SendHandle sp, SendMessage m) {
-    return data.then((value) async {
-      await encode(value);
-      sp.send(ReceiveMessage(data: value, uniqueKey: m.uniqueKey));
-    }, onError: (e, s) {
-      Log.e('future receive error: $e\n$s');
-      sendError((e, s), sp, m);
-    });
+    return data.then(
+      (value) async {
+        await encode(value);
+        sp.send(ReceiveMessage(data: value, uniqueKey: m.uniqueKey));
+      },
+      onError: (e, s) {
+        Log.e('future receive error: $e\n$s');
+        sendError((e, s), sp, m);
+      },
+    );
   }
 
   void streamSend(Stream data, SendHandle sp, SendMessage m) {
@@ -293,28 +311,33 @@ mixin Resolve on ListenMixin {
     final isPrivateHandle = key is SendHandle;
     final subOwner = StreamSubscriptionOwner();
     StreamSubscription sub;
-    sub = data.listen((data) {
-      if (subOwner.isCancel) return;
-      final encodeData = encode(data);
-      EventQueue.push(key, () {
-        if (!subOwner.isCancel) {
-          var retValue = data;
-          if (isPrivateHandle) {
-          } else {
-            retValue = ReceiveMessage(data: data, uniqueKey: key);
+    sub = data.listen(
+      (data) {
+        if (subOwner.isCancel) return;
+        final encodeData = encode(data);
+        EventQueue.push(key, () {
+          if (!subOwner.isCancel) {
+            var retValue = data;
+            if (isPrivateHandle) {
+            } else {
+              retValue = ReceiveMessage(data: data, uniqueKey: key);
+            }
+            return encodeData.whenComplete(() => sp.send(retValue));
           }
-          return encodeData.whenComplete(() => sp.send(retValue));
-        }
-      });
-    }, onDone: () {
-      _listener.remove(key);
-      EventQueue.push(key, () {
-        sp.send(ReceiveMessage(data: StreamState.done, uniqueKey: key));
-      });
-    }, onError: (e, s) {
-      _listener.remove(key);
-      EventQueue.push(key, () => sendError((e, s), sp, m));
-    }, cancelOnError: true);
+        });
+      },
+      onDone: () {
+        _listener.remove(key);
+        EventQueue.push(key, () {
+          sp.send(ReceiveMessage(data: StreamState.done, uniqueKey: key));
+        });
+      },
+      onError: (e, s) {
+        _listener.remove(key);
+        EventQueue.push(key, () => sendError((e, s), sp, m));
+      },
+      cancelOnError: true,
+    );
     subOwner.sub = sub;
     _listener[key] = subOwner;
     assert(Log.i('listeners: ${_listener.length}'));
@@ -322,17 +345,23 @@ mixin Resolve on ListenMixin {
 
   void objectSend(Object? data, SendHandle sp, SendMessage m) {
     encode(data).then(
-        (value) => sp.send(ReceiveMessage(data: data, uniqueKey: m.uniqueKey)),
-        onError: (e, s) {
-      sendError((e, s), sp, m);
-      Log.e('error: $e');
-    });
+      (value) => sp.send(ReceiveMessage(data: data, uniqueKey: m.uniqueKey)),
+      onError: (e, s) {
+        sendError((e, s), sp, m);
+        Log.e('error: $e');
+      },
+    );
   }
 
   void sendError(error, SendHandle sp, SendMessage m) {
     assert(error is (Object, StackTrace));
-    sp.send(ReceiveMessage(
-        data: error, uniqueKey: m.uniqueKey, result: Result.failed));
+    sp.send(
+      ReceiveMessage(
+        data: error,
+        uniqueKey: m.uniqueKey,
+        result: Result.failed,
+      ),
+    );
   }
 }
 
