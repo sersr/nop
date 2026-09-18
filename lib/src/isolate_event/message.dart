@@ -1,41 +1,53 @@
 import 'sender_platform/sender.dart';
 export 'sender_platform/sender.dart';
 
-typedef KeyControllerCallback = void Function(
-    dynamic identityKey, KeyType keyType, String? isolateName);
+typedef KeyControllerCallback =
+    void Function(dynamic identityKey, KeyType keyType, Type? protocol);
 
-enum KeyType { pause, resume, cancel, closeServer }
+enum KeyType { pause, resume, cancel, closeServer, connectToProtocol }
 
 abstract class ServerName {
-  String? get serverName;
+  Type? get protocol;
 }
 
 class KeyController implements ServerName {
-  KeyController(this.key, this.keyType, this.serverName);
+  KeyController(this.key, this.keyType, this.protocol);
   final dynamic key;
   final KeyType keyType;
   @override
-  String? serverName;
+  Type? protocol;
   @override
   String toString() {
-    return 'KeyController: key: $key, keyType: $keyType, isolateName: $serverName';
+    return 'KeyController: key: $key, keyType: $keyType, isolateName: $protocol';
   }
 }
 
 enum StreamState { done }
 
 class SendMessage implements ServerName {
-  SendMessage(this.type, this.args, this.uniqueKey, this.serverName);
-  final dynamic type;
+  SendMessage(this.type, this.args, this.uniqueKey, this.protocol);
+  final Enum type;
   final dynamic args;
   @override
-  final String serverName;
+  final Type protocol;
 
   SendHandle? _sendHandle;
   bool get dirty => _sendHandle == null;
 
   void reset(SendHandle sendHandle) {
     _sendHandle = sendHandle;
+  }
+
+  void receipt(dynamic data, {Result result = .success}) {
+    var sendHandle = this.sendHandle;
+    if (uniqueKey case SendHandle sendHandle) {
+      sendHandle.send(data);
+      return;
+    }
+
+    sendHandle.send(
+      ReceiveMessage(data: data, uniqueKey: uniqueKey, result: result),
+    );
   }
 
   SendHandle get sendHandle => _sendHandle!;
@@ -46,11 +58,7 @@ class SendMessage implements ServerName {
   }
 }
 
-enum Result {
-  success,
-  failed,
-  error,
-}
+enum Result { success, failed, error }
 
 class ReceiveMessage {
   ReceiveMessage({

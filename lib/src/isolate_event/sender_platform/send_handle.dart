@@ -16,30 +16,27 @@ abstract class SendHandle {
 /// 对应关系：
 /// [localSendHandle] 出自 <remote>的[ReceiveHandle]
 /// [remoteSendHandle] 出自 <local>的[ReceiveHandle]
-class SendHandleOwner {
-  SendHandleOwner({
-    required this.localSendHandle,
-    required this.remoteSendHandle,
-  });
+// class SendHandleOwner {
+//   SendHandleOwner({
+//     required this.localSendHandle,
+//     required this.remoteSendHandle,
+//   });
 
-  final SendHandle localSendHandle;
-  final SendHandle remoteSendHandle;
-}
+//   final SendHandle localSendHandle;
+//   final SendHandle remoteSendHandle;
+// }
 
 class SendHandleName {
   SendHandleName(
-    this.name,
     this.sendHandle, {
-    this.protocols,
-    this.isToRemote = true,
+    this.isRequest = true,
+    required this.protocols,
   });
-  final String name;
+  final List<Type> protocols;
 
-  /// true: 由local 发送给 remote
-  /// false: remote 返回给 local
-  final bool isToRemote;
+  /// 是否是请求连接，请求放发起，接收方返回 isRequest = false
+  final bool isRequest;
   final SendHandle sendHandle;
-  final List<Type>? protocols;
 }
 
 abstract class ReceiveHandle implements Stream {

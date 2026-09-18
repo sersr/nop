@@ -16,22 +16,25 @@ mixin SendCacheMixin on SendEvent {
     super.onResume();
   }
 
+  SendHandle get localSendHandle;
   @override
   void send(message) {
     if (message is ServerName) {
-      final sendHandleOwner = getSendHandleOwner(message.serverName);
-      if (sendHandleOwner == null) {
+      final remoteHandle = getRemoteSender(message.protocol);
+      if (remoteHandle == null) {
         _currentPendingEvents.add(message);
         return;
       }
 
-      assert(_currentPendingEvents.isEmpty ||
-          Log.e('_currentPendingEvents ${_currentPendingEvents.length}'));
+      assert(
+        _currentPendingEvents.isEmpty ||
+            Log.e('_currentPendingEvents ${_currentPendingEvents.length}'),
+      );
 
       if (message is SendMessage) {
-        message.reset(sendHandleOwner.remoteSendHandle);
+        message.reset(localSendHandle);
       }
-      sendHandleOwner.localSendHandle.send(message);
+      remoteHandle.send(message);
       return;
     }
 

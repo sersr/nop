@@ -1,3 +1,6 @@
+## 0.3.1
+* code refactoring: isolate_event
+
 ## 0.2.0+1
 * Support web
 

@@ -12,7 +12,7 @@ mixin Sender {
   void cancel();
   late final Object identityKey = Capability();
   Object? messageKey;
-  String? serverName;
+  Type? protocol;
 
   bool nullOnError = false;
 }
@@ -116,18 +116,43 @@ mixin TransferTypeMapDataList<E, D, T> on TransferTypeMapData<T> {
 
 /// 创建一个[Isolate]
 class IsolateRemoteServer<T> extends RemoteServer {
-  IsolateRemoteServer(
-      {required this.entryPoint, required this.args, this.debugName});
-  final ServerConfigurations<T> args;
+  IsolateRemoteServer({
+    required this.entryPoint,
+    required this.args,
+    this.debugName,
+  });
+  final T args;
   final RemoteEntryPoint<T> entryPoint;
   final String? debugName;
 
-  Isolate? _isolate;
   @override
-  Future<void> create() async {
-    _isolate ??= await Isolate.spawn(
-        _nopIsolate, _IsolateCreaterWithArgs(entryPoint, args),
-        debugName: debugName);
+  SendHandleName? get lastSendHandle => _lastSendHandle;
+
+  Isolate? _isolate;
+  Future<SendHandleName>? _createTask;
+  @override
+  Future<SendHandleName> create(SendHandle sendHandle) async {
+    if (_lastSendHandle case var handle? when _isolate != null) {
+      return handle;
+    }
+
+    return _createTask ??= _create(sendHandle)
+      ..whenComplete(() => _createTask = null);
+  }
+
+  SendHandleName? _lastSendHandle;
+  Future<SendHandleName> _create(SendHandle sendHandle) async {
+    final recv = ReceivePort();
+    _isolate = await Isolate.spawn(
+      _nopIsolate,
+      _IsolateCreaterWithArgs(
+        entryPoint,
+        recv.sendPort,
+        ServerConfigurations(sendHandle: sendHandle, args: args),
+      ),
+      debugName: debugName,
+    );
+    return _lastSendHandle = await recv.first as SendHandleName;
   }
 
   @override
@@ -135,9 +160,11 @@ class IsolateRemoteServer<T> extends RemoteServer {
   @override
   void kill() {
     if (_isolate != null) {
+      _lastSendHandle = null;
       _isolate!.kill(priority: Isolate.immediate);
       _isolate = null;
     }
+    super.kill();
   }
 
   static void _nopIsolate(_IsolateCreaterWithArgs args) => args.apply();
@@ -145,7 +172,10 @@ class IsolateRemoteServer<T> extends RemoteServer {
 
 class _IsolateCreaterWithArgs<T> {
   final ServerConfigurations<T> args;
+  final SendPort sendPort;
   final RemoteEntryPoint<T> entryPoint;
-  _IsolateCreaterWithArgs(this.entryPoint, this.args);
-  FutureOr<void> apply() => entryPoint(args).then((runner) => runner.run());
+  _IsolateCreaterWithArgs(this.entryPoint, this.sendPort, this.args);
+  FutureOr<void> apply() => entryPoint(
+    args.args,
+  ).then((runner) => runner.run(args.sendHandle).then(sendPort.send));
 }

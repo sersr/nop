@@ -16,6 +16,7 @@ mixin StreamLazyMixin<T> {
   final activeUnits = <StreamSubscriptionUnit<T>>{};
   final pausedUnits = <StreamSubscriptionUnit<T>>{};
 
+  String? get label => null;
   T? lastData;
 
   void _childResume(StreamSubscriptionUnit<T> child) {
@@ -52,7 +53,7 @@ mixin StreamLazyMixin<T> {
     moveToDirty();
     if (isPaused) return;
     if (activeUnits.isNotEmpty) {
-      for (var l in activeUnits) {
+      for (var l in activeUnits.toList()) {
         l.sendData(data);
       }
     }
@@ -141,6 +142,10 @@ mixin StreamLazyMixin<T> {
     active.forEach(_close);
     paused.forEach(_close);
     dirty.forEach(_close);
+    activeUnits.clear();
+    pausedUnits.clear();
+    dirtyUnits.clear();
+    _dispose();
   }
 
   static void _close<T>(StreamSubscriptionUnit<T> item) {
@@ -163,11 +168,21 @@ mixin StreamLazyMixin<T> {
   }) {
     final StreamSubscriptionUnit<T> sub;
     if (async) {
-      sub = _StreamSubscriptionAsyncUnit<T>(this, onData,
-          onError: onError, onDone: onDone, cancelOnError: cancelOnError);
+      sub = _StreamSubscriptionAsyncUnit<T>(
+        this,
+        onData,
+        onError: onError,
+        onDone: onDone,
+        cancelOnError: cancelOnError,
+      );
     } else {
-      sub = StreamSubscriptionUnit<T>(this, onData,
-          onError: onError, onDone: onDone, cancelOnError: cancelOnError);
+      sub = StreamSubscriptionUnit<T>(
+        this,
+        onData,
+        onError: onError,
+        onDone: onDone,
+        cancelOnError: cancelOnError,
+      );
     }
     if (_canceled) {
       onListen(sub);
@@ -225,8 +240,10 @@ mixin StreamLazyMixin<T> {
     } else {
       activeUnits.remove(self);
     }
-    assert(!dirtyUnits.contains(self) && !activeUnits.contains(self),
-        '${self._dirty} ${dirtyUnits.contains(self)} ${activeUnits.contains(self)}');
+    assert(
+      !dirtyUnits.contains(self) && !activeUnits.contains(self),
+      '${self._dirty} ${dirtyUnits.contains(self)} ${activeUnits.contains(self)}',
+    );
     _dispose();
   }
 }
@@ -238,8 +255,12 @@ class SenderLayzeStream<T> extends Stream<T> {
   final bool async;
 
   @override
-  StreamSubscription<T> listen(void Function(T event)? onData,
-      {Function? onError, void Function()? onDone, bool? cancelOnError}) {
+  StreamSubscription<T> listen(
+    void Function(T event)? onData, {
+    Function? onError,
+    void Function()? onDone,
+    bool? cancelOnError,
+  }) {
     return _source.listen(
       onData,
       onError: onError,
@@ -261,17 +282,30 @@ void _nullOnErrorHandler(Object error, StackTrace stackTrace) {
 
 class StreamSubscriptionUnit<T> implements StreamSubscription<T> {
   StreamSubscriptionUnit(
-      StreamLazyMixin<T> source, void Function(T event)? onData,
-      {Function? onError, void Function()? onDone, bool? cancelOnError})
-      : this.zone(Zone.current, source, onData,
-            onError: onError, onDone: onDone, cancelOnError: cancelOnError);
+    StreamLazyMixin<T> source,
+    void Function(T event)? onData, {
+    Function? onError,
+    void Function()? onDone,
+    bool? cancelOnError,
+  }) : this.zone(
+         Zone.current,
+         source,
+         onData,
+         onError: onError,
+         onDone: onDone,
+         cancelOnError: cancelOnError,
+       );
   StreamSubscriptionUnit.zone(
-      this.zone, this._source, void Function(T event)? onData,
-      {Function? onError, void Function()? onDone, bool? cancelOnError})
-      : _cancelOnError = cancelOnError ?? false,
-        _onData = onDataHandle(zone, onData),
-        _onDone = onDoneHandler(zone, onDone),
-        _onError = onErrorHandle(zone, onError);
+    this.zone,
+    this._source,
+    void Function(T event)? onData, {
+    Function? onError,
+    void Function()? onDone,
+    bool? cancelOnError,
+  }) : _cancelOnError = cancelOnError ?? false,
+       _onData = onDataHandle(zone, onData),
+       _onDone = onDoneHandler(zone, onDone),
+       _onError = onErrorHandle(zone, onError);
 
   final StreamLazyMixin<T> _source;
 
@@ -302,9 +336,12 @@ class StreamSubscriptionUnit<T> implements StreamSubscription<T> {
   }
 
   static DataHandler<T> onDataHandle<T>(
-      Zone zone, void Function(T data)? handleData) {
-    return zone
-        .registerUnaryCallback<void, T>(handleData ?? _nullOnDataHandler);
+    Zone zone,
+    void Function(T data)? handleData,
+  ) {
+    return zone.registerUnaryCallback<void, T>(
+      handleData ?? _nullOnDataHandler,
+    );
   }
 
   @override
@@ -328,8 +365,10 @@ class StreamSubscriptionUnit<T> implements StreamSubscription<T> {
     } else if (handleError is void Function(Object)) {
       return zone.registerUnaryCallback(handleError);
     }
-    throw ArgumentError("handleError callback must take either an Object "
-        "(the error), or both an Object (the error) and a StackTrace.");
+    throw ArgumentError(
+      "handleError callback must take either an Object "
+      "(the error), or both an Object (the error) and a StackTrace.",
+    );
   }
 
   bool _paused = false;
@@ -399,10 +438,19 @@ class StreamSubscriptionUnit<T> implements StreamSubscription<T> {
 
 class _StreamSubscriptionAsyncUnit<T> extends StreamSubscriptionUnit<T> {
   _StreamSubscriptionAsyncUnit(
-      StreamLazyMixin<T> source, void Function(T event)? onData,
-      {Function? onError, void Function()? onDone, bool? cancelOnError})
-      : super.zone(Zone.current, source, onData,
-            onError: onError, onDone: onDone, cancelOnError: cancelOnError);
+    StreamLazyMixin<T> source,
+    void Function(T event)? onData, {
+    Function? onError,
+    void Function()? onDone,
+    bool? cancelOnError,
+  }) : super.zone(
+         Zone.current,
+         source,
+         onData,
+         onError: onError,
+         onDone: onDone,
+         cancelOnError: cancelOnError,
+       );
 
   FutureOr<void> get runner {
     return EventQueue.getQueueRunner(this);

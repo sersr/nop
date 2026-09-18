@@ -1,83 +1,117 @@
 import 'dart:async';
 
+import 'package:meta/meta.dart';
 
-import 'event.dart';
 import '../../event_queue.dart';
 import '../../utils.dart';
-import 'package:meta/meta.dart';
+import 'event.dart';
+import 'message.dart';
 
 /// 远程服务/主机
 /// 提供[kill]接口
 
 abstract class RemoteServer {
-  const RemoteServer();
+  RemoteServer();
 
   bool get killed;
-  FutureOr<void> create();
-  FutureOr<void> kill();
-}
+  FutureOr<SendHandleName> create(SendHandle sendHandle);
 
-/// 不是由当前的对象创建的[RemoteServer]
-/// 由用户管理生命周期
-class RemoteServerBase extends RemoteServer {
-  @override
+  SendHandleName? get lastSendHandle;
+
   @mustCallSuper
-  void create() {
-    _killed = false;
-  }
-
-  @override
-  bool get killed => _killed;
-  bool _killed = false;
-  @override
-  void kill() {
-    _killed = true;
-  }
+  FutureOr<void> kill() {}
 }
 
 /// 由[entryPoint]创建
-class LocalRemoteServer<T> extends RemoteServerBase {
-  LocalRemoteServer({required this.entryPoint, required this.args});
-  final ServerConfigurations<T> args;
+class LocalRemoteServer<T> extends RemoteServer {
+  LocalRemoteServer({
+    required this.entryPoint,
+    required this.args,
+    this.debugName,
+  });
+  final T args;
   final RemoteEntryPoint<T> entryPoint;
+  final String? debugName;
+
+  Runner? _runner;
+  FutureOr<SendHandleName>? _createTask;
 
   @override
-  void create() {
-    super.create();
-    entryPoint(args).then((runner) => runner.run());
+  SendHandleName? get lastSendHandle => _lastSendHandle;
+
+  @override
+  FutureOr<SendHandleName> create(SendHandle sendHandle) {
+    if (_runner != null) {
+      if (_lastSendHandle case var handle?) {
+        return handle;
+      }
+    }
+
+    final createNew = _createTask == null;
+    final task = _createTask ??= _create(sendHandle);
+    if (createNew) {
+      task.whenComplete(() => _createTask = null);
+    }
+    return task;
   }
+
+  SendHandleName? _lastSendHandle;
+  FutureOr<SendHandleName> _create(SendHandle sendHandle) {
+    if (_lastSendHandle case var handle?) return handle;
+
+    return entryPoint(args).then((runner) {
+      _runner = runner;
+      return runner.run(sendHandle)..then((v) {
+        _lastSendHandle = v;
+      });
+    });
+  }
+
+  @override
+  FutureOr<void> kill() {
+    _runner?.close();
+    _lastSendHandle = null;
+    _runner = null;
+    super.kill();
+  }
+
+  @override
+  bool get killed => _runner == null || _lastSendHandle == null;
 }
 
 class Runner {
-  final void Function(void Function())? runDelegate;
-  final ListenMixin runner;
-  Runner({
-    required this.runner,
-    this.runDelegate,
-  });
+  final FutureOr<T> Function<T>(FutureOr<T> Function())? runDelegate;
+  final Resolve runner;
+  Runner({required this.runner, this.runDelegate});
 
-  void run() {
-    runDelegate.mapOption(
-      ifNone: runner.run,
-      ifSome: (runDelegate) => runDelegate(runner.run),
+  FutureOr<SendHandleName> run(SendHandle sendHandle) {
+    Future<SendHandleName> run() => runner.runResolve(sendHandle);
+    return runDelegate.mapOption(
+      ifNone: run,
+      ifSome: (runDelegate) => runDelegate(run),
     );
+  }
+
+  void close() {
+    runner.close();
   }
 }
 
-typedef RemoteEntryPoint<T> = FutureOr<Runner> Function(
-    ServerConfigurations<T> args);
-
+typedef RemoteEntryPoint<T> = FutureOr<Runner> Function(T args);
 
 /// 通常由其他[RemoteServer]代理时
 /// 为其提供一个句柄
-class NullRemoteServer extends RemoteServer {
-  const NullRemoteServer._();
-  factory NullRemoteServer() => const NullRemoteServer._();
+class DelegateRemoteServer extends RemoteServer {
+  DelegateRemoteServer({required this.remoteSendHandle});
   @override
-  bool get killed => true;
+  bool get killed => false;
+
+  final SendHandleName remoteSendHandle;
 
   @override
-  void create() {}
+  SendHandleName get lastSendHandle => remoteSendHandle;
   @override
-  void kill() {}
+  FutureOr<SendHandleName> create(SendHandle sendHandle) {
+    return remoteSendHandle;
+  }
 }

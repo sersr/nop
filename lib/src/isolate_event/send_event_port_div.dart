@@ -3,6 +3,8 @@ import 'event.dart';
 import 'message.dart';
 import 'sender_private_handle.dart';
 
+mixin SendEventPortMixin on SendEventFutureMixin, SendEventPortStreamMixin {}
+
 /// 每个任务都有一个独立的端口
 mixin SendEventFutureMixin on SendEvent implements Messager {
   @override
@@ -21,19 +23,11 @@ mixin SendEventFutureMixin on SendEvent implements Messager {
     _futureLists.remove(sender.messageKey);
   }
 
-  // dynamic _sendEventResolve(dynamic data) {
-  //   if (data is ReceiveMessage) {
-  //     if (data.result == Result.failed) assert(Log.w('failed'));
-  //     return data.data;
-  //   }
-  //   return data;
-  // }
-
   final _futureLists = <ListKey, SenderCompleterPrivateHandle>{};
 
   @override
-  Future<T> sendMessage<T>(type, args, {String serverName = 'default'}) {
-    final key = ListKey([type, args, T, serverName]);
+  Future<T> sendMessage<T>(type, args, {required Type protocol}) {
+    final key = ListKey([type, args, T, protocol]);
 
     if (_futureLists.containsKey(key)) {
       return _futureLists[key]!.future as Future<T>;
@@ -44,10 +38,10 @@ mixin SendEventFutureMixin on SendEvent implements Messager {
     _futureLists[key] = sender;
 
     final id = sender.identityKey;
-    sender.serverName = serverName;
+    sender.protocol = protocol;
     sender.nullOnError = nullOnError;
 
-    send(SendMessage(type, args, id, serverName));
+    send(SendMessage(type, args, id, protocol));
 
     return sender.future;
   }
@@ -65,51 +59,49 @@ mixin SendEventPortStreamMixin on SendEvent implements Messager {
     super.dispose();
   }
 
-  void _sendEventRemove(Sender sender) {
+  void _sendStreamEventRemove(Sender sender) {
     assert(sender is SenderStreamPrivateHandle);
     _streamLists.remove(sender.messageKey);
   }
 
-  // dynamic _sendEventResolve(dynamic data) {
-  //   if (data is ReceiveMessage) {
-  //     if (data.result == Result.failed) assert(Log.w('failed'));
-  //     return data.data;
-  //   }
-  //   return data;
-  // }
-
   final _streamLists = <Object, SenderStreamPrivateHandle>{};
 
   @override
-  Stream<T> sendMessageStream<T>(type, args,
-      {bool unique = false,
-      bool cached = false,
-      String serverName = 'default'}) {
+  Stream<T> sendMessageStream<T>(
+    type,
+    args, {
+    bool unique = false,
+    bool cached = false,
+    required Type protocol,
+  }) {
     Object key;
     if (unique) {
       key = Object();
     } else {
-      key = ListKey([type, args, T, serverName]);
+      key = ListKey([type, args, T, protocol]);
     }
     final shouldCached = cached && !unique;
     if (_streamLists.containsKey(key)) {
       return _streamLists[key]!.stream as Stream<T>;
     }
 
-    final sender =
-        SenderStreamPrivateHandle<T>(_sendEventRemove, _sendKey, shouldCached);
+    final sender = SenderStreamPrivateHandle<T>(
+      _sendStreamEventRemove,
+      _sendKey,
+      shouldCached,
+    );
     sender.messageKey = key;
     _streamLists[key] = sender;
 
     final id = sender.identityKey;
-    sender.serverName = serverName;
+    sender.protocol = protocol;
     sender.nullOnError = nullOnError;
 
-    send(SendMessage(type, args, id, serverName));
+    send(SendMessage(type, args, id, protocol));
     return sender.streamAsync;
   }
 
-  void _sendKey(dynamic id, KeyType keyType, String? serverName) {
-    send(KeyController(id, keyType, serverName));
+  void _sendKey(dynamic id, KeyType keyType, Type? protocol) {
+    send(KeyController(id, keyType, protocol));
   }
 }

@@ -7,18 +7,18 @@ import '../../utils.dart';
 import './message.dart';
 import 'sender_transfer_data.dart';
 
-abstract class Messager {
+abstract mixin class Messager {
   Future<T> sendMessage<T>(
     dynamic type,
     dynamic args, {
-    String serverName = 'default',
+    required Type protocol,
   });
   Stream<T> sendMessageStream<T>(
     dynamic type,
     dynamic args, {
     bool unique = false,
     bool cached = false,
-    String serverName = 'default',
+    required Type protocol,
   });
 }
 
@@ -26,9 +26,9 @@ extension SendMessageOption on Messager {
   Future<Option<T>> sendOption<T>(
     dynamic type,
     dynamic args, {
-    String serverName = 'default',
+    required Type protocol,
   }) {
-    return sendMessage(type, args, serverName: serverName).then((value) {
+    return sendMessage(type, args, protocol: protocol).then((value) {
       assert(value is Option<T> || value == null);
       if (value is Option<T>) {
         return value;
@@ -44,21 +44,19 @@ extension SendMessageOption on Messager {
   }
 }
 
-abstract class SendEvent {
+abstract mixin class SendEvent {
   @protected
-  bool add(message);
+  bool add(message) => false;
 
   @protected
   void send(message);
 
-  bool get nullOnError;
+  bool get nullOnError => true;
 
   @mustCallSuper
   @protected
-  SendHandleOwner? getSendHandleOwner(String? serverName) => null;
-  @mustCallSuper
-  @protected
-  Map<String, List<Type>> getProtocols() => {};
+  SendHandle? getRemoteSender(Type? protocol) => null;
+
   @protected
   void notifyState(bool open) {}
 
@@ -66,7 +64,6 @@ abstract class SendEvent {
   @protected
   void onResume() {}
   @mustCallSuper
-  @protected
   void dispose() {}
 }
 
@@ -76,53 +73,111 @@ class ServerConfigurations<T> {
   final SendHandle sendHandle;
 }
 
-/// 端口创建/监听
-/// 初始化
-mixin ListenMixin {
+typedef TaskCallback = Future<void> Function();
+
+final class ResolveItem {
+  ResolveItem({
+    required this.protocol,
+    required this.protocolFns,
+    required this.onClose,
+    required this.onInit,
+  });
+
+  final TaskCallback? onInit;
+  final TaskCallback? onClose;
+  final Type protocol;
+  final List<Function> protocolFns;
+}
+
+mixin Resolve {
   SendHandle get localSendHandle => _rcHandle.sendHandle;
 
-  ServerConfigurations<T> getArgs<T>(T args) =>
-      ServerConfigurations(args: args, sendHandle: localSendHandle);
+  final _rcHandle = ReceiveHandle();
 
-  late ReceiveHandle _rcHandle;
+  void Function()? onResolveResume;
+  void Function(dynamic message)? onResolveResolvedFailed;
+  void Function(dynamic message, dynamic error)? onResolveError;
+
+  final List<ResolveItem> _resolveItems = [];
+
+  void addResolveItem(ResolveItem item) {
+    if (_inited) {
+      assert(Log.e("current resolve inited."));
+      return;
+    }
+    _resolveItems.add(item);
+  }
+
+  void addResolveItemAll(List<ResolveItem> items) {
+    if (_inited) {
+      assert(Log.e("current resolve inited."));
+      return;
+    }
+    _resolveItems.addAll(items);
+  }
+
+  SendHandle? _remoteSendHandle;
+  SendHandle? get remoteSendHandle => _remoteSendHandle;
+
+  final _completer = Completer<SendHandle>();
+  Future<SendHandle> get remoteSendHandleAsync => _completer.future;
+
+  var _inited = false;
+  Future<SendHandleName> runResolve(SendHandle sendHandle) async {
+    _remoteSendHandle = sendHandle;
+    if (!_completer.isCompleted) {
+      _completer.complete(remoteSendHandle);
+    }
+    _inited = true;
+    await run();
+    return currentLocalSendHandle;
+  }
+
+  List<Type> get protocols => _resolveItems.map((e) => e.protocol).toList();
+
+  SendHandleName get currentLocalSendHandle =>
+      SendHandleName(localSendHandle, protocols: protocols, isRequest: false);
+
   FutureOr<void> run() async {
     return runZonedGuarded(_initState, (error, stack) {
       Log.e('error: $error\n$stack');
     });
   }
 
-  FutureOr<void> onInitStart() {}
+  FutureOr<void> Function()? onListenInitStart;
+  FutureOr<void> onInitStart() {
+    return onListenInitStart?.call();
+  }
 
   Future<void> _initState() async {
-    _rcHandle = ReceiveHandle();
     await onInitStart();
     final any = FutureAny();
-    initStateListen(any.add);
+    for (var e in _resolveItems) {
+      any.add(e.onInit?.call());
+    }
 
     final wait = any.wait;
     if (wait != null) await wait;
-    await onListen(_rcHandle);
+    _rcHandle.listen(listen);
     onResumeListen();
   }
 
   @mustCallSuper
-  void initStateListen(void Function(FutureOr<void> work) add) {}
-  @mustCallSuper
-  void onResumeListen() {}
-
-  FutureOr<void> onListen(ReceiveHandle rcHandle) {
-    rcHandle.listen(listen);
+  void onResumeListen() {
+    onResolveResume?.call();
   }
 
-  @mustCallSuper
   bool listen(message) {
-    if (message is SendHandleName) {
-      if (!onListenReceivedSendHandle(message)) {
-        Log.e('can not resolve ${message.name} sendHandle');
-      }
-      return true;
+    if (remove(message)) return true;
+    final success = resolve(message);
+    if (!success) {
+      onResolvedFailed(message);
     }
-    return false;
+    return success;
+  }
+
+  void close() {
+    onClose();
   }
 
   void closeRcHandle() {
@@ -130,92 +185,25 @@ mixin ListenMixin {
   }
 
   @mustCallSuper
-  bool onListenReceivedSendHandle(SendHandleName sendHandleName) => false;
-}
-
-/// 不需要调用[Resolve]的[onResumeListen]
-/// 以[SendEvent]为主
-mixin SendEventResolve on SendEvent, Resolve {
-  @override
-  FutureOr<void> onInitStart() {
-    resume = true;
-    return super.onInitStart();
-  }
-
-  @override
-  void dispose() {
-    resume = false;
-    super.dispose();
-  }
-}
-
-mixin Resolve on ListenMixin {
-  SendHandle? get remoteSendHandle;
-  Map<Type, List<Function>> resolveFunctionIterable() => {};
-  Map<String, List<Type>> getResolveProtocols() => {};
-
-  bool _resume = false;
-
-  set resume(bool v) {
-    _resume = v;
-  }
-
-  @override
-  void onResumeListen() {
-    if (remoteSendHandle != null && !_resume) {
-      _resume = true;
-
-      final map = <String, Set<Type>>{};
-      for (var protocols in getResolveProtocols().entries) {
-        final prot = map.putIfAbsent(protocols.key, () => <Type>{});
-        prot.addAll(protocols.value);
-      }
-      for (var item in map.entries) {
-        remoteSendHandle!.send(
-          SendHandleName(
-            item.key,
-            localSendHandle,
-            protocols: item.value.toList(),
-            isToRemote: false,
-          ),
-        );
-      }
-    }
-    super.onResumeListen();
-  }
-
-  @override
-  bool listen(message) {
-    if (remove(message)) return true;
-    final success = resolve(message) || super.listen(message);
-    if (!success) {
-      onResolvedFailed(message);
-    }
-    return success;
-  }
-
-  @mustCallSuper
   FutureOr<void> onClose() {
-    _resume = false;
-    // 只有关闭端口，`Isolate`才会退出
-    closeRcHandle();
-  }
-
-  List<MapEntry<Type, List<Function>>>? _resolveFunctions;
-
-  List<MapEntry<Type, List<Function>>> get _resolves {
-    if (_resolveFunctions != null) return _resolveFunctions!;
-    return _resolveFunctions ??= resolveFunctionIterable().entries.toList();
+    _resolveItems
+        .map((e) => e.onClose?.call())
+        .whereType<Future>()
+        .wait
+        .whenComplete(() {
+          // 只有关闭端口，`Isolate`才会退出
+          closeRcHandle();
+        });
   }
 
   @protected
   bool resolve(message) {
     if (message is SendMessage) {
       final type = message.type;
-      for (var item in _resolves) {
-        if (identical(type.runtimeType, item.key)) {
+      for (var item in _resolveItems) {
+        if (identical(type.runtimeType, item.protocol)) {
           try {
-            final result = item.value.elementAt(type.index)(message.args);
+            final result = item.protocolFns.elementAt(type.index)(message.args);
             receipt(result, message);
           } catch (e, stacktrace) {
             receipt((e, stacktrace), message, true);
@@ -227,7 +215,9 @@ mixin Resolve on ListenMixin {
     return false;
   }
 
-  void onResolvedFailed(dynamic message) {}
+  void onResolvedFailed(dynamic message) {
+    onResolveResolvedFailed?.call(message);
+  }
 
   final _listener = <dynamic, StreamSubscriptionOwner>{};
 
@@ -251,64 +241,52 @@ mixin Resolve on ListenMixin {
             Log.w('error $key');
         }
         return true;
-      } else if (key.key is SendHandle &&
-          identical(key.keyType, KeyType.closeServer)) {
-        final sp = key.key;
-        onClose().whenComplete(
-          () => sp.send(
-            SendHandleName('${key.serverName}', sp, isToRemote: false),
-          ),
-        );
-
-        return true;
       }
     }
+
     return false;
   }
 
   @protected
   void receipt(o, SendMessage m, [bool isError = false]) {
-    var sendHandle = m.sendHandle;
-    // 使用独立端口，如果可用
-    if (m.uniqueKey is SendHandle) sendHandle = m.uniqueKey as SendHandle;
-
     if (o is Future) {
-      futureAutoSend(o, sendHandle, m);
+      futureAutoSend(o, m);
     } else if (o is Stream) {
-      streamSend(o, sendHandle, m);
+      streamSend(o, m);
     } else if (!isError) {
-      objectSend(o, sendHandle, m);
+      objectSend(o, m);
     }
 
     if (isError) {
-      sendError(o, sendHandle, m);
+      sendError(o, m);
       onError(m, (o as (Object, StackTrace)).$1);
     }
   }
 
-  void onError(message, error) {}
+  void onError(message, error) {
+    onResolveError?.call(message, error);
+  }
 
   @protected
   FutureOr<void> encode(dynamic data) {
     if (data is TransferType) return data.encode();
   }
 
-  Future<void> futureAutoSend(Future data, SendHandle sp, SendMessage m) {
+  Future<void> futureAutoSend(Future data, SendMessage m) {
     return data.then(
       (value) async {
         await encode(value);
-        sp.send(ReceiveMessage(data: value, uniqueKey: m.uniqueKey));
+        m.receipt(value);
       },
       onError: (e, s) {
         Log.e('future receive error: $e\n$s');
-        sendError((e, s), sp, m);
+        sendError((e, s), m);
       },
     );
   }
 
-  void streamSend(Stream data, SendHandle sp, SendMessage m) {
+  void streamSend(Stream data, SendMessage m) {
     final key = m.uniqueKey;
-    final isPrivateHandle = key is SendHandle;
     final subOwner = StreamSubscriptionOwner();
     StreamSubscription sub;
     sub = data.listen(
@@ -317,24 +295,19 @@ mixin Resolve on ListenMixin {
         final encodeData = encode(data);
         EventQueue.push(key, () {
           if (!subOwner.isCancel) {
-            var retValue = data;
-            if (isPrivateHandle) {
-            } else {
-              retValue = ReceiveMessage(data: data, uniqueKey: key);
-            }
-            return encodeData.whenComplete(() => sp.send(retValue));
+            return encodeData.whenComplete(() => m.receipt(data));
           }
         });
       },
       onDone: () {
         _listener.remove(key);
         EventQueue.push(key, () {
-          sp.send(ReceiveMessage(data: StreamState.done, uniqueKey: key));
+          m.receipt(StreamState.done);
         });
       },
       onError: (e, s) {
         _listener.remove(key);
-        EventQueue.push(key, () => sendError((e, s), sp, m));
+        EventQueue.push(key, () => sendError((e, s), m));
       },
       cancelOnError: true,
     );
@@ -343,25 +316,19 @@ mixin Resolve on ListenMixin {
     assert(Log.i('listeners: ${_listener.length}'));
   }
 
-  void objectSend(Object? data, SendHandle sp, SendMessage m) {
+  void objectSend(Object? data, SendMessage m) {
     encode(data).then(
-      (value) => sp.send(ReceiveMessage(data: data, uniqueKey: m.uniqueKey)),
+      (value) => m.receipt(data),
       onError: (e, s) {
-        sendError((e, s), sp, m);
+        sendError((e, s), m);
         Log.e('error: $e');
       },
     );
   }
 
-  void sendError(error, SendHandle sp, SendMessage m) {
+  void sendError(error, SendMessage m) {
     assert(error is (Object, StackTrace));
-    sp.send(
-      ReceiveMessage(
-        data: error,
-        uniqueKey: m.uniqueKey,
-        result: Result.failed,
-      ),
-    );
+    m.receipt(error, result: Result.failed);
   }
 }
 

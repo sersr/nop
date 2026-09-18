@@ -18,7 +18,7 @@ mixin SenderOnReceivedMixin on Sender {
           sender.addData(data);
       }
     } else {
-      assert(sender is SenderStreamPrivateHandle);
+      assert(sender is SenderStreamPrivateHandle || sender is SenderCompleterPrivateHandle);
       sender.addData(message);
     }
   }

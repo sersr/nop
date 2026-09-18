@@ -21,10 +21,7 @@ mixin SendEventMixin implements SendEvent, Messager {
   bool get nullOnError => true;
 
   @override
-  SendHandleOwner? getSendHandleOwner(String? serverName) => null;
-
-  @override
-  Map<String, List<Type>> getProtocols() => {};
+  SendHandle? getRemoteSender(Type? protocol) => null;
 
   @override
   void notifyState(bool open) {}
@@ -72,9 +69,12 @@ mixin SendEventMixin implements SendEvent, Messager {
   final _futureLists = <ListKey, SenderCompleter>{};
 
   @override
-  Future<T> sendMessage<T>(dynamic type, dynamic args,
-      {String serverName = 'default'}) {
-    final key = ListKey([type, args, T, serverName]);
+  Future<T> sendMessage<T>(
+    dynamic type,
+    dynamic args, {
+    required Type protocol,
+  }) {
+    final key = ListKey([type, args, T, protocol]);
 
     if (_futureLists.containsKey(key)) {
       return _futureLists[key]!.future as Future<T>;
@@ -83,7 +83,7 @@ mixin SendEventMixin implements SendEvent, Messager {
     final sender = SenderCompleter<T>(_remove);
     _futureLists[key] = sender;
     sender.messageKey = key;
-    _send(type, args, sender, serverName);
+    _send(type, args, sender, protocol);
 
     return sender.future;
   }
@@ -91,15 +91,18 @@ mixin SendEventMixin implements SendEvent, Messager {
   final _streamLists = <Object, SenderStreamController>{};
 
   @override
-  Stream<T> sendMessageStream<T>(dynamic type, dynamic args,
-      {bool unique = false,
-      bool cached = false,
-      String serverName = 'default'}) {
+  Stream<T> sendMessageStream<T>(
+    dynamic type,
+    dynamic args, {
+    bool unique = false,
+    bool cached = false,
+    required Type protocol,
+  }) {
     Object key;
     if (unique) {
       key = Object();
     } else {
-      key = ListKey([type, args, T, serverName]);
+      key = ListKey([type, args, T, protocol]);
     }
     bool shouldCache = cached && !unique;
     if (_streamLists.containsKey(key)) {
@@ -109,22 +112,22 @@ mixin SendEventMixin implements SendEvent, Messager {
     final sender = SenderStreamController<T>(_remove, _sendKey, shouldCache);
     _streamLists[key] = sender;
     sender.messageKey = key;
-    _send(type, args, sender, serverName);
+    _send(type, args, sender, protocol);
 
     return sender.streamAsync;
   }
 
-  void _send(dynamic type, dynamic args, Sender sender, String serverName) {
+  void _send(dynamic type, dynamic args, Sender sender, Type protocol) {
     final id = sender.identityKey;
     assert(!_messageCaches.containsKey(id));
-    sender.serverName = serverName;
+    sender.protocol = protocol;
     _messageCaches[id] = sender;
     sender.nullOnError = nullOnError;
 
-    send(SendMessage(type, args, id, serverName));
+    send(SendMessage(type, args, id, protocol));
   }
 
-  void _sendKey(dynamic id, KeyType keyType, String? serverName) {
-    send(KeyController(id, keyType, serverName));
+  void _sendKey(dynamic id, KeyType keyType, Type? protocol) {
+    send(KeyController(id, keyType, protocol));
   }
 }

@@ -74,7 +74,7 @@ mixin ListenerControllerStreamMixin<T> on Sender, StreamLazyMixin<T> {
       }
       return;
     }
-    if (messageData is TransferType<T>) {
+    if (messageData case  TransferType<T> messageData) {
       _quque.addEventTask(
         () => messageData.decode().then((value) {
           if (!isCanceled) add(value);
@@ -103,13 +103,13 @@ mixin ListenerControllerStreamMixin<T> on Sender, StreamLazyMixin<T> {
 
   @override
   void notifyClient() {
-    onSend(identityKey, isPaused ? KeyType.pause : KeyType.resume, serverName);
+    onSend(identityKey, isPaused ? KeyType.pause : KeyType.resume, protocol);
   }
 
   @override
   void dispose() {
     onRemove(this);
-    if (!isCanceled) onSend(identityKey, KeyType.cancel, serverName);
+    if (!isCanceled) onSend(identityKey, KeyType.cancel, protocol);
     assert(!hasListener);
   }
 }
