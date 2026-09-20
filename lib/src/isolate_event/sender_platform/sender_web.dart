@@ -1,18 +1,24 @@
+import 'dart:async';
+import 'dart:typed_data';
+
 import '../../../isolate_event.dart';
 
-mixin Sender {
-  void addData(data);
-  void addError(Object error, StackTrace stackTrace);
-  void cancel();
-  late final Object identityKey = Object();
-  Object? messageKey;
-  String? serverName;
-
-  bool nullOnError = false;
-}
+Object createIdentityKey() => Object();
 
 dynamic materialize(dynamic data) {
   return data;
 }
 
-typedef IsolateRemoteServer = LocalRemoteServer;
+typedef IsolateRemoteServer<T> = LocalRemoteServer<T>;
+
+class Uint8ListType with TransferType<Uint8List?> {
+  Uint8ListType(this.list);
+  final Uint8List? list;
+  @override
+  FutureOr<Uint8List?> decode() {
+    return list;
+  }
+
+  @override
+  FutureOr<void> encode() {}
+}

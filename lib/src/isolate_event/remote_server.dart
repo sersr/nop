@@ -1,117 +1,84 @@
 import 'dart:async';
 
-import 'package:meta/meta.dart';
-
-import '../../event_queue.dart';
-import '../../utils.dart';
-import 'event.dart';
-import 'message.dart';
+import 'package:nop/nop.dart';
 
 /// 远程服务/主机
 /// 提供[kill]接口
 
-abstract class RemoteServer {
+abstract class RemoteServer<T> {
   RemoteServer();
 
+  factory isolate({
+    required RemoteEntryPoint<T> entry,
+    required T args,
+    String? debugName,
+  }) = IsolateRemoteServer<T>;
+
+  factory local({
+    required RemoteEntryPoint<T> entry,
+    required T args,
+    String? debugName,
+  }) = LocalRemoteServer<T>;
+
   bool get killed;
-  FutureOr<SendHandleName> create(SendHandle sendHandle);
+  FutureOr<SendHandleName> create(SendHandle rootSendHandle);
 
   SendHandleName? get lastSendHandle;
 
-  @mustCallSuper
   FutureOr<void> kill() {}
+
+  static IsolateResolve? get current {
+    if (Zone.current[IsolateResolve] case IsolateResolve resolve?) {
+      return resolve;
+    }
+    return null;
+  }
 }
 
-/// 由[entryPoint]创建
-class LocalRemoteServer<T> extends RemoteServer {
-  LocalRemoteServer({
-    required this.entryPoint,
-    required this.args,
-    this.debugName,
-  });
+/// 由[entry]创建
+class LocalRemoteServer<T> extends RemoteServer<T> {
+  LocalRemoteServer({required this.entry, required this.args, this.debugName});
   final T args;
-  final RemoteEntryPoint<T> entryPoint;
+  final RemoteEntryPoint<T> entry;
   final String? debugName;
 
-  Runner? _runner;
-  FutureOr<SendHandleName>? _createTask;
+  IsolateResolve? _runner;
 
   @override
   SendHandleName? get lastSendHandle => _lastSendHandle;
 
-  @override
-  FutureOr<SendHandleName> create(SendHandle sendHandle) {
-    if (_runner != null) {
-      if (_lastSendHandle case var handle?) {
-        return handle;
-      }
-    }
-
-    final createNew = _createTask == null;
-    final task = _createTask ??= _create(sendHandle);
-    if (createNew) {
-      task.whenComplete(() => _createTask = null);
-    }
-    return task;
-  }
-
   SendHandleName? _lastSendHandle;
-  FutureOr<SendHandleName> _create(SendHandle sendHandle) {
+  @override
+  FutureOr<SendHandleName> create(SendHandle rootSendHandle) {
     if (_lastSendHandle case var handle?) return handle;
 
-    return entryPoint(args).then((runner) {
-      _runner = runner;
-      return runner.run(sendHandle)..then((v) {
-        _lastSendHandle = v;
-      });
-    });
+    try {
+      final runner = IsolateResolve(
+        remoteSendHandle: rootSendHandle,
+        resolveRecord: entry(args),
+      );
+      runner.run();
+      _lastSendHandle = runner.currentLocalSendHandle;
+      return runner.currentLocalSendHandle;
+    } catch (e, s) {
+      _runner?.onClose();
+      _runner = null;
+      _lastSendHandle = null;
+      Log.e('local error: $e\n$s');
+      rethrow;
+    }
   }
 
   @override
   FutureOr<void> kill() {
-    _runner?.close();
+    final future = _runner?.onClose();
     _lastSendHandle = null;
     _runner = null;
-    super.kill();
+    return future;
   }
 
   @override
   bool get killed => _runner == null || _lastSendHandle == null;
 }
 
-class Runner {
-  final FutureOr<T> Function<T>(FutureOr<T> Function())? runDelegate;
-  final Resolve runner;
-  Runner({required this.runner, this.runDelegate});
-
-  FutureOr<SendHandleName> run(SendHandle sendHandle) {
-    Future<SendHandleName> run() => runner.runResolve(sendHandle);
-    return runDelegate.mapOption(
-      ifNone: run,
-      ifSome: (runDelegate) => runDelegate(run),
-    );
-  }
-
-  void close() {
-    runner.close();
-  }
-}
-
-typedef RemoteEntryPoint<T> = FutureOr<Runner> Function(T args);
-
-/// 通常由其他[RemoteServer]代理时
-/// 为其提供一个句柄
-class DelegateRemoteServer extends RemoteServer {
-  DelegateRemoteServer({required this.remoteSendHandle});
-  @override
-  bool get killed => false;
-
-  final SendHandleName remoteSendHandle;
-
-  @override
-  SendHandleName get lastSendHandle => remoteSendHandle;
-  @override
-  FutureOr<SendHandleName> create(SendHandle sendHandle) {
-    return remoteSendHandle;
-  }
-}
+typedef RemoteEntryPoint<T> = ResolveRecord Function(T args);

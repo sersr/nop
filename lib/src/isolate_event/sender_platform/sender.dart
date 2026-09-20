@@ -2,7 +2,19 @@ import '../message.dart';
 import '../sender_private_handle.dart';
 
 export 'send_handle.dart';
-export 'sender_io.dart' if (dart.library.html) 'sender_web.dart';
+export 'sender_io.dart' if (dart.library.js_interop) 'sender_web.dart';
+// export 'sender_web.dart' if (dart.library.js_interop) 'sender_io.dart';
+
+mixin Sender {
+  void addData(data);
+  void addError(Object error, StackTrace stackTrace);
+  void cancel();
+  late final Object identityKey = createIdentityKey();
+  Object? messageKey;
+  Type? protocol;
+
+  bool nullOnError = false;
+}
 
 mixin SenderOnReceivedMixin on Sender {
   void onReceived(message) {
@@ -18,7 +30,10 @@ mixin SenderOnReceivedMixin on Sender {
           sender.addData(data);
       }
     } else {
-      assert(sender is SenderStreamPrivateHandle || sender is SenderCompleterPrivateHandle);
+      assert(
+        sender is SenderStreamPrivateHandle ||
+            sender is SenderCompleterPrivateHandle,
+      );
       sender.addData(message);
     }
   }

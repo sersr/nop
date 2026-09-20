@@ -9,14 +9,13 @@ mixin SendCacheMixin on SendEvent {
   void onResume() {
     if (_currentPendingEvents.isNotEmpty) {
       final events = List.of(_currentPendingEvents);
-      assert(Log.i('$runtimeType 缓存中的任务数: ${events.length}'));
+      assert(Log.i('$runtimeType chache tasks: ${events.length}'));
       _currentPendingEvents.clear();
       events.forEach(send);
     }
     super.onResume();
   }
 
-  SendHandle get localSendHandle;
   @override
   void send(message) {
     if (message is ServerName) {

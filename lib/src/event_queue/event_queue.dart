@@ -391,9 +391,14 @@ class TaskEntry<T> {
   bool get ignore => _taskIgnore?.ignore == true;
   bool get ignoreOrNull => _taskIgnore?.ignore == null || ignore;
 
-  bool get notIgnoreOrNull => !ignore;
+  // bool get notIgnoreOrNull => !ignore;
 
-  bool get notIgnore => !onlyLast || _taskIgnore?.ignore == false;
+  bool get _canRun =>
+      !onlyLast ||
+      _eventQueue.isLast ||
+      _taskIgnore == null ||
+      _taskIgnore?.ignore == false;
+
   void _ignore(bool v) {
     _taskIgnore?.ignore = v;
   }
@@ -413,7 +418,7 @@ class TaskEntry<T> {
   }
 
   Future<void> _run() async {
-    if (notIgnore || _eventQueue.isLast) {
+    if (_canRun) {
       try {
         assert(_innerCompleter == null);
         _innerCompleter ??= Completer<void>();

@@ -43,17 +43,20 @@ class IsolateManager {
 
 abstract class MessageItem {
   Type get protocol;
+  final _messagerDefault = InitMessager();
   Messager? _messager;
 
-  Messager get messager => _messager!;
+  Messager get messager => _messager ?? _messagerDefault;
 
-  bool get isValid => _messager != null;
+  void _updateDelegate(SendEventMixin delegate) {
+    _messager = delegate;
+    _messagerDefault._updateDelegate(delegate);
+  }
 }
 
 class IsolateRunner<T extends MessageItem> {
   IsolateRunner({required this.remoteServer, required this.messageItem}) {
-    assert(messageItem._messager == null);
-    messageItem._messager = messager;
+    messageItem._updateDelegate(messager);
   }
 
   final RemoteServer remoteServer;
@@ -95,25 +98,81 @@ class IsolateRunner<T extends MessageItem> {
   }
 }
 
+final class InitMessager
+    with SendEventMixin, SendEventPortStreamMixin, SendCacheMixin {
+  InitMessager();
+
+  @override
+  SendHandle get localSendHandle => _delegate!.localSendHandle;
+
+  SendEvent? _delegate;
+
+  void _updateDelegate(SendEvent delegate) {
+    _delegate = delegate;
+    onResume();
+  }
+
+  @override
+  void send(message) {
+    if (_delegate case var delegate?) {
+      return delegate.send(message);
+    }
+    super.send(message);
+  }
+
+  @override
+  SendHandle? getRemoteSender(Type? protocol) {
+    return _delegate?.getRemoteSender(protocol) ??
+        super.getRemoteSender(protocol);
+  }
+}
+
+final class ResolveRecord({
+  required final List<ResolveItem> resolves,
+  final List<MessageItem> messagers = const [],
+  final List<ResolveEvent> resolveEvents = const [],
+});
+
 class IsolateResolve
-    with Resolve, SendEventMixin, SendCacheMixin, ConnectorMixin {
+    with
+        Resolve,
+        SendEventMixin,
+        SendCacheMixin,
+        SendEventPortStreamMixin,
+        ConnectorMixin {
+  IsolateResolve({
+    required this.resolveRecord,
+    required SendHandle remoteSendHandle,
+  }) {
+    connectTo(SendHandleName(remoteSendHandle, protocols: [KeyType]));
+    _connectToMessagers();
+  }
+
+  final ResolveRecord resolveRecord;
+
+  @override
+  List<ResolveItem> get resolveItems => resolveRecord.resolves;
+  @override
+  List<ResolveEvent> get resolveEvents => resolveRecord.resolveEvents;
+
   @override
   bool listen(message) {
     if (super.listen(message)) return true;
     if (add(message)) return true;
+    for (var item in resolveRecord.messagers) {
+      if (item._messagerDefault.add(message)) return true;
+    }
     return false;
   }
 
-  @override
-  FutureOr<void> onInitStart() {
-    assert(remoteSendHandle != null);
-    connectTo(SendHandleName(remoteSendHandle!, protocols: [KeyType]));
-    return super.onInitStart();
+  void _connectToMessagers() {
+    for (var item in resolveRecord.messagers) {
+      _connectToMessager(item);
+    }
   }
 
-  Future<bool> connectToMessager(MessageItem messageItem) async {
-    messageItem._messager = this;
-    await remoteSendHandleAsync;
+  Future<bool> _connectToMessager(MessageItem messageItem) async {
+    messageItem._updateDelegate(this);
     final sendHandle = await sendMessage<SendHandleName>(
       KeyType.connectToProtocol,
       messageItem.protocol,

@@ -74,7 +74,7 @@ mixin ListenerControllerStreamMixin<T> on Sender, StreamLazyMixin<T> {
       }
       return;
     }
-    if (messageData case  TransferType<T> messageData) {
+    if (messageData case TransferType<T> messageData) {
       _quque.addEventTask(
         () => messageData.decode().then((value) {
           if (!isCanceled) add(value);

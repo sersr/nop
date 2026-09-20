@@ -1,11 +1,8 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:meta/meta.dart';
-
-import '../../event_queue.dart';
-import '../../utils.dart';
-import './message.dart';
-import 'sender_transfer_data.dart';
+import 'package:nop/nop.dart';
 
 abstract mixin class Messager {
   Future<T> sendMessage<T>(
@@ -56,6 +53,7 @@ abstract mixin class SendEvent {
   @mustCallSuper
   @protected
   SendHandle? getRemoteSender(Type? protocol) => null;
+  SendHandle get localSendHandle;
 
   @protected
   void notifyState(bool open) {}
@@ -73,18 +71,19 @@ class ServerConfigurations<T> {
   final SendHandle sendHandle;
 }
 
-typedef TaskCallback = Future<void> Function();
+typedef TaskCallback = FutureOr<void> Function();
+
+abstract mixin class ResolveEvent {
+  FutureOr<void> onInit();
+  FutureOr<void> onClose();
+
+  void onResolvedFailed(dynamic message) {}
+  void onError(SendMessage message, Object error, StackTrace stackTrace) {}
+}
 
 final class ResolveItem {
-  ResolveItem({
-    required this.protocol,
-    required this.protocolFns,
-    required this.onClose,
-    required this.onInit,
-  });
+  ResolveItem({required this.protocol, required this.protocolFns});
 
-  final TaskCallback? onInit;
-  final TaskCallback? onClose;
   final Type protocol;
   final List<Function> protocolFns;
 }
@@ -92,79 +91,37 @@ final class ResolveItem {
 mixin Resolve {
   SendHandle get localSendHandle => _rcHandle.sendHandle;
 
-  final _rcHandle = ReceiveHandle();
+  late final _rcHandle = ReceiveHandle()..listen(listen);
 
-  void Function()? onResolveResume;
-  void Function(dynamic message)? onResolveResolvedFailed;
-  void Function(dynamic message, dynamic error)? onResolveError;
+  List<ResolveItem> get resolveItems;
+  List<ResolveEvent> get resolveEvents;
 
-  final List<ResolveItem> _resolveItems = [];
+  late final List<Type> protocols = resolveItems
+      .map((e) => e.protocol)
+      .toList();
 
-  void addResolveItem(ResolveItem item) {
-    if (_inited) {
-      assert(Log.e("current resolve inited."));
-      return;
-    }
-    _resolveItems.add(item);
-  }
+  late SendHandleName currentLocalSendHandle = SendHandleName(
+    localSendHandle,
+    protocols: protocols,
+    isRequest: false,
+  );
 
-  void addResolveItemAll(List<ResolveItem> items) {
-    if (_inited) {
-      assert(Log.e("current resolve inited."));
-      return;
-    }
-    _resolveItems.addAll(items);
-  }
-
-  SendHandle? _remoteSendHandle;
-  SendHandle? get remoteSendHandle => _remoteSendHandle;
-
-  final _completer = Completer<SendHandle>();
-  Future<SendHandle> get remoteSendHandleAsync => _completer.future;
-
-  var _inited = false;
-  Future<SendHandleName> runResolve(SendHandle sendHandle) async {
-    _remoteSendHandle = sendHandle;
-    if (!_completer.isCompleted) {
-      _completer.complete(remoteSendHandle);
-    }
-    _inited = true;
-    await run();
-    return currentLocalSendHandle;
-  }
-
-  List<Type> get protocols => _resolveItems.map((e) => e.protocol).toList();
-
-  SendHandleName get currentLocalSendHandle =>
-      SendHandleName(localSendHandle, protocols: protocols, isRequest: false);
-
-  FutureOr<void> run() async {
-    return runZonedGuarded(_initState, (error, stack) {
+  void run() {
+    runZonedGuarded(_initState, (error, stack) {
       Log.e('error: $error\n$stack');
     });
   }
 
-  FutureOr<void> Function()? onListenInitStart;
-  FutureOr<void> onInitStart() {
-    return onListenInitStart?.call();
-  }
+  final queue = TaskQueue();
 
-  Future<void> _initState() async {
-    await onInitStart();
-    final any = FutureAny();
-    for (var e in _resolveItems) {
-      any.add(e.onInit?.call());
-    }
+  var _inited = false;
+  void _initState() {
+    if (_inited) return;
+    _inited = true;
 
-    final wait = any.wait;
-    if (wait != null) await wait;
-    _rcHandle.listen(listen);
-    onResumeListen();
-  }
-
-  @mustCallSuper
-  void onResumeListen() {
-    onResolveResume?.call();
+    queue.run(
+      () => resolveEvents.map((e) => e.onInit()).whereType<Future>().wait,
+    );
   }
 
   bool listen(message) {
@@ -176,37 +133,26 @@ mixin Resolve {
     return success;
   }
 
-  void close() {
-    onClose();
-  }
+  Future<void> onClose() async {
+    if (!_inited) return;
+    _inited = false;
 
-  void closeRcHandle() {
-    _rcHandle.close();
-  }
-
-  @mustCallSuper
-  FutureOr<void> onClose() {
-    _resolveItems
-        .map((e) => e.onClose?.call())
-        .whereType<Future>()
-        .wait
-        .whenComplete(() {
-          // 只有关闭端口，`Isolate`才会退出
-          closeRcHandle();
-        });
+    return queue.run(
+      () => resolveEvents.map((e) => e.onClose()).whereType<Future>().wait,
+    );
   }
 
   @protected
   bool resolve(message) {
     if (message is SendMessage) {
       final type = message.type;
-      for (var item in _resolveItems) {
+      for (var item in resolveItems) {
         if (identical(type.runtimeType, item.protocol)) {
           try {
             final result = item.protocolFns.elementAt(type.index)(message.args);
             receipt(result, message);
           } catch (e, stacktrace) {
-            receipt((e, stacktrace), message, true);
+            receipt(null, message, error: (e, stacktrace));
           }
           return true;
         }
@@ -216,7 +162,19 @@ mixin Resolve {
   }
 
   void onResolvedFailed(dynamic message) {
-    onResolveResolvedFailed?.call(message);
+    for (var item in resolveEvents) {
+      item.onResolvedFailed(message);
+    }
+  }
+
+  void onError(
+    SendMessage message,
+    (Object error, StackTrace stackTrace) data,
+  ) {
+    for (var item in resolveEvents) {
+      item.onError(message, data.$1, data.$2);
+      return;
+    }
   }
 
   final _listener = <dynamic, StreamSubscriptionOwner>{};
@@ -248,39 +206,46 @@ mixin Resolve {
   }
 
   @protected
-  void receipt(o, SendMessage m, [bool isError = false]) {
-    if (o is Future) {
-      futureAutoSend(o, m);
-    } else if (o is Stream) {
-      streamSend(o, m);
-    } else if (!isError) {
-      objectSend(o, m);
+  void receipt(
+    dynamic data,
+    SendMessage message, {
+    (Object error, StackTrace stackTrace)? error,
+  }) {
+    assert(error == null || data == null);
+    switch (data) {
+      case Future data:
+        futureAutoSend(data, message);
+      case Stream data:
+        streamSend(data, message);
+      case var _ when error != null:
+        sendError(message, error);
+        onError(message, error);
+      case var data:
+        objectSend(data, message);
     }
-
-    if (isError) {
-      sendError(o, m);
-      onError(m, (o as (Object, StackTrace)).$1);
-    }
-  }
-
-  void onError(message, error) {
-    onResolveError?.call(message, error);
   }
 
   @protected
-  FutureOr<void> encode(dynamic data) {
-    if (data is TransferType) return data.encode();
+  FutureOr<dynamic> encode(dynamic data) {
+    if (data is Uint8List) {
+      data = Uint8ListType(data);
+    }
+
+    try {
+      if (data is TransferType) return data.encode().whenComplete(() => data);
+    } catch (_) {}
+    return data;
   }
 
   Future<void> futureAutoSend(Future data, SendMessage m) {
     return data.then(
       (value) async {
-        await encode(value);
+        value = await encode(value);
         m.receipt(value);
       },
       onError: (e, s) {
         Log.e('future receive error: $e\n$s');
-        sendError((e, s), m);
+        sendError(m, (e, s));
       },
     );
   }
@@ -295,7 +260,7 @@ mixin Resolve {
         final encodeData = encode(data);
         EventQueue.push(key, () {
           if (!subOwner.isCancel) {
-            return encodeData.whenComplete(() => m.receipt(data));
+            return encodeData.then(m.receipt);
           }
         });
       },
@@ -307,7 +272,7 @@ mixin Resolve {
       },
       onError: (e, s) {
         _listener.remove(key);
-        EventQueue.push(key, () => sendError((e, s), m));
+        EventQueue.push(key, () => sendError(m, (e, s)));
       },
       cancelOnError: true,
     );
@@ -318,16 +283,15 @@ mixin Resolve {
 
   void objectSend(Object? data, SendMessage m) {
     encode(data).then(
-      (value) => m.receipt(data),
+      (value) => m.receipt(value),
       onError: (e, s) {
-        sendError((e, s), m);
+        sendError(m, (e, s));
         Log.e('error: $e');
       },
     );
   }
 
-  void sendError(error, SendMessage m) {
-    assert(error is (Object, StackTrace));
+  void sendError(SendMessage m, (Object error, StackTrace stackTrace) error) {
     m.receipt(error, result: Result.failed);
   }
 }
