@@ -37,7 +37,7 @@ class TaskQueueImpl extends TaskQueue {
   bool get actived => _eventQueue.actived;
 }
 
-class TaskQueueGlobal extends TaskQueue with EquatableMixin {
+class TaskQueueGlobal extends TaskQueue with Equatable {
   TaskQueueGlobal({required this.globalKey, this.channels = 1}) : super._();
   final int channels;
   final Object globalKey;
